@@ -1,0 +1,39 @@
+# --- Local config (contains your TV's IP) ---
+tv-config.cmd
+
+# --- Downloaded toolchains / tools (fetched by the build + setup scripts) ---
+platform-tools/
+toolchain/
+tools-scrcpy/
+
+# --- Build output ---
+out/
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+launcher/captures/
+*.iml
+.idea/
+
+# --- Runtime logs / captures ---
+logs/
+
+# --- Personal media: add your own wallpaper + screensaver images ---
+images/
+/*.jpg
+/*.jpeg
+/*.JPG
+/*.JPEG
+/*.png
+
+# --- AI session handoff notes (device-specific) ---
+CLAUDE.md
+
+# --- Editor / tool settings ---
+.claude/
+.vscode/
+
+# --- OS cruft ---
+Thumbs.db
+.DS_Store
