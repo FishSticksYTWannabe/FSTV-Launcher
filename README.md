@@ -5,9 +5,14 @@ Kotlin. No ads, no sponsored rows — just your apps, with fluid spring animatio
 always-on clock, and a photo screensaver. Built to be sideloaded over ADB and to run as the real
 home screen even on Fire OS, which normally hard-wires HOME to Amazon's launcher.
 
+> **This was coded completely with AI.**
+>
 > **v0.1** — early, works-on-my-TV quality. Developed and tested on a Toshiba 43LF421U21
 > (`AFTBAMR311`, Fire OS 6.7.1.1 / Android 7.1). It should run on other Fire TV and Android TV
-> devices, but the setup scripts and the HOME workaround are tuned for Fire OS 6.
+> devices: the launcher app is a standard Android TV home screen that discovers your apps and
+> scales to any screen. The setup scripts and the HOME-takeover trick are tuned for Fire OS,
+> where Amazon hard-wires the Home button; on a normal Android TV you can just set FSTV as the
+> default home in Settings and skip the guard.
 
 ## Features
 
@@ -21,12 +26,34 @@ home screen even on Fire OS, which normally hard-wires HOME to Amazon's launcher
 - **Photo screensaver + wallpaper** — drop your own images in (see below); the TV shows them
   instead of sleeping.
 - **Startup chime + wordmark**, launched on cold start.
+- **Live TV / Inputs tile** — opens your TV's source app to switch HDMI/antenna inputs from the
+  home screen (appears only on TVs that have one).
 - **Home guard** — a tiny on-device script that returns you to FSTV whenever Fire OS tries to
   show Amazon's launcher (Amazon's launcher can't be removed without root).
 - **Debloat + one-click restore** — reversible `pm disable-user` scripts, with a restore script
   that puts everything back.
 - **Side-button mapper** — maps the TV's physical button: 1 click = Select, 2 = Right, 3 = Back,
   4 = Menu (hold is left to the OS, which sleeps the TV).
+
+## Quick start (beginner-friendly)
+
+You need a Windows PC, and the TV and PC on the same Wi-Fi. No coding and no Android Studio.
+
+1. **Turn on ADB on the TV.**
+   - Fire TV: *Settings > My Fire TV > Developer Options > ADB Debugging = On.* If you don't see
+     Developer Options, open *Settings > My Fire TV > About* and click the top line 7 times first.
+   - Other Android TV: *Settings > Device Preferences > About*, click *Build* 7 times, then
+     *Developer options > Network/USB debugging = On.*
+   - Note the TV's IP under *About > Network*.
+2. **Get this project:** the green **Code** button above > **Download ZIP**, then unzip it.
+3. **Tell it your TV's IP:** copy `tv-config.example.cmd` to **`tv-config.cmd`** and put your IP in it.
+4. **Build the app:** double-click **`2-build.cmd`** and wait (the first run downloads the build tools).
+5. **Set it up:** double-click **`setup.cmd`**. Look at the TV and choose *Allow* on the
+   "Allow USB debugging?" prompt. It installs FSTV, turns on the always-on look, and (on Fire TV)
+   starts the Home takeover.
+6. Press **Home** — you're on FSTV Launcher. Your installed apps are already there; nothing to add.
+
+To undo everything, double-click **`3-restore.cmd`**.
 
 ## Build
 

@@ -681,10 +681,11 @@ class HomeActivity : Activity() {
         hero.alpha = (1f - away) * (1f - inactive) * (1f - deep)
         hero.translationY = -away * ui.px(160f)
         grid.alpha = 1f - deep
-        // Top widgets (greeting, date, time) hand off to the big clock panel as the TV goes inactive.
-        clock.alpha = 1f - inactive
-        greeting.alpha = 1f - inactive
-        cornerDate.alpha = 1f - inactive
+        // Top widgets fade out as the grid scrolls up under them, and hand off to the big clock when idle.
+        val topFade = (1f - inactive) * (1f - away)
+        clock.alpha = topFade
+        greeting.alpha = topFade
+        cornerDate.alpha = topFade
         // Genuinely dark idle: a full-screen veil dims everything (inactive) then nearly blacks it out (near-off).
         deepVeil.alpha = INACTIVE_DIM * inactive + (DEEP_DIM - INACTIVE_DIM) * deep
         // Clock panel fades in and sits up top when inactive; near-off centers and enlarges it.

@@ -103,8 +103,26 @@ class AppRepository(private val context: Context, private val ui: Ui) {
             out += AppEntry(KEY_STOCK, "Fire TV Home", intent, Kind.APP, null, iconRes = R.drawable.ic_stock_home)
         }
 
+        liveTvEntry()?.let { out += it }
+
         out += AppEntry(KEY_MORE, if (showAll) "Fewer Apps" else "More Apps", null, Kind.MORE, null, glyph = "...")
         return out
+    }
+
+    /**
+     * A "Live TV" tile that opens the device's TV-input / source app, so inputs can be switched
+     * from the home screen without the physical button. Tries several brands, so it is not
+     * Fire-TV-only; absent on devices with no such app (e.g. a plain streaming stick).
+     */
+    private fun liveTvEntry(): AppEntry? {
+        for (pkg in LIVE_TV_PACKAGES) {
+            val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                return AppEntry(KEY_LIVETV, "Live TV", intent, Kind.APP, null, iconRes = R.drawable.ic_livetv)
+            }
+        }
+        return null
     }
 
     private fun applySavedOrder(list: List<AppEntry>): List<AppEntry> {
@@ -172,7 +190,17 @@ class AppRepository(private val context: Context, private val ui: Ui) {
         private const val KEY_ORDER = "order"
         private const val KEY_SETTINGS = "@settings"
         private const val KEY_STOCK = "@stock"
+        private const val KEY_LIVETV = "@livetv"
         private const val KEY_MORE = "@more"
+
+        // TV-input / source apps across brands, in order of preference.
+        private val LIVE_TV_PACKAGES = listOf(
+            "com.droidlogic.tvsource",       // Amlogic (this Fire TV Edition)
+            "com.mediatek.wwtv.tvcenter",    // MediaTek TVs
+            "com.mediatek.tvinput",
+            "com.google.android.tv",         // Android TV Live Channels
+            "com.android.tv",
+        )
 
         private val PRIORITY = listOf(
             "com.netflix.ninja",
@@ -182,6 +210,9 @@ class AppRepository(private val context: Context, private val ui: Ui) {
             "in.startv.hotstar",
         )
         private val EXTRA_VISIBLE = setOf("com.amazon.cloud9", "com.amazon.venezia")
-        private val HIDDEN_BY_DEFAULT = setOf("com.amazon.shoptv.firetv.client")
+        private val HIDDEN_BY_DEFAULT = setOf(
+            "com.amazon.shoptv.firetv.client",
+            "com.droidlogic.tvsource",   // shown via the dedicated "Live TV" tile instead
+        )
     }
 }
