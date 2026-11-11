@@ -12,6 +12,8 @@ macOS/Linux version (run the `.sh` from a terminal). They all read your TV's IP 
 | Restart the Home takeover after a power-off | `4-start-home-guard.cmd` | re-run `bash setup.sh` |
 | Mirror/control the TV from your computer | `5-control-tv.cmd` (scrcpy) | `scrcpy -s <ip>:5555` |
 | Map the physical side button (experimental) | `6-start-side-button.cmd` | — |
+| Dim the real backlight (true darken) | `7-darken.cmd` | `bash scripts/darken.sh` |
+| Restore the backlight | `8-brighten.cmd` | `bash scripts/darken.sh restore` |
 
 ## Requirements
 
@@ -27,6 +29,14 @@ macOS/Linux version (run the `.sh` from a terminal). They all read your TV's IP 
   FSTV whenever Fire OS tries to show Amazon's launcher.
 - `scripts/side-button.sh` — experimental. Maps the physical side button to navigation by click count.
   Off by default; see the note in the main README.
+
+## Darken vs. the always-on screen
+
+The always-on / deep-idle look paints a near-black *picture*, but on an LED-backlit panel the backlight
+stays on, so it reads as dark grey. `7-darken.cmd` instead lowers the panel's actual backlight
+(`screen_brightness`) for a true darken. It remembers the brightness you had and `8-brighten.cmd` puts
+it back. Pass a level to darken part-way, e.g. `scripts\darken.ps1 -Level 40` (0–255). This is a manual
+command — it does not change the launcher's idle behavior.
 
 ## Configuration
 
