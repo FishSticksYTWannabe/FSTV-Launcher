@@ -1,0 +1,99 @@
+/* FSTV Launcher - Tizen. Authored against a 1920x1080 TV screen. tvOS-style grid + idle clock. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #000; color: #fff;
+    font-family: "Samsung One", "SamsungOne", "Helvetica Neue", Arial, sans-serif;
+    -webkit-user-select: none; user-select: none; cursor: none;
+}
+
+/* ---- Wallpaper + screensaver ---- */
+#backdrop {
+    position: absolute; inset: 0;
+    background: radial-gradient(130% 120% at 50% 0%, #1b2230 0%, #0a0d14 55%, #05070b 100%);
+    background-size: cover; background-position: center;
+}
+#screensaver {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    opacity: 0; transition: opacity 1400ms ease;
+}
+#dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 600ms ease; }
+
+/* ---- Top widgets ---- */
+#top { position: absolute; top: 44px; left: 100px; right: 100px; display: flex; justify-content: space-between;
+    transition: opacity 320ms ease, transform 320ms ease; }
+#greeting { font-size: 52px; font-weight: 300; letter-spacing: .01em; }
+#date { font-size: 28px; color: rgba(255,255,255,.8); margin-top: 8px; }
+#clock { font-size: 54px; font-weight: 300; }
+
+/* ---- Hero preview ---- */
+#hero { position: absolute; top: 150px; left: 0; right: 0; text-align: center;
+    transition: opacity 320ms ease, transform 320ms ease; }
+#hero-art { width: 660px; height: 372px; object-fit: contain; border-radius: 28px;
+    filter: drop-shadow(0 24px 48px rgba(0,0,0,.55)); }
+#hero-title { margin-top: 20px; font-size: 40px; font-weight: 500; letter-spacing: .02em;
+    text-shadow: 0 3px 16px rgba(0,0,0,.5); }
+
+/* When focus moves off the top row, the hero + top widgets slide up and fade away. */
+body.scrolled #hero { opacity: 0; transform: translateY(-40px); }
+body.scrolled #top { opacity: 0; transform: translateY(-20px); }
+
+/* ---- Grid ---- */
+#stage { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
+#grid {
+    position: absolute; top: 620px; left: 100px;
+    display: grid; grid-template-columns: repeat(5, 312px); gap: 106px 40px;
+    transition: transform 320ms cubic-bezier(.22,.61,.36,1);
+}
+
+.tile {
+    position: relative; width: 312px; height: 176px; border-radius: 20px;
+    background: #20252f center/cover no-repeat;
+    box-shadow: 0 10px 26px rgba(0,0,0,.45);
+    transition: transform 200ms cubic-bezier(.22,.61,.36,1), box-shadow 200ms ease, filter 200ms ease;
+    overflow: hidden; filter: saturate(.85) brightness(.82);
+}
+.tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.tile .label {
+    position: absolute; left: 0; right: 0; bottom: -44px; text-align: center;
+    font-size: 24px; color: #fff; opacity: 0; transition: opacity 180ms ease; white-space: nowrap;
+    text-shadow: 0 2px 8px rgba(0,0,0,.6);
+}
+
+/* Focused tile: lift, brighten, and a reflective shelf underneath. */
+.tile.focused { transform: scale(1.14); filter: none; box-shadow: 0 22px 46px rgba(0,0,0,.6); z-index: 2; }
+.tile.focused .label { opacity: 1; }
+.tile.focused::after {
+    content: ""; position: absolute; left: 6%; right: 6%; bottom: -10px; height: 6px; border-radius: 3px;
+    background: linear-gradient(#fcfdff, #ced4de 50%, #828a96);
+    box-shadow: 0 0 26px 8px rgba(194,214,255,.30);
+}
+
+/* Full-bleed designed tiles (Apple-style), used for custom entries. */
+.tile.settings { background: linear-gradient(#3c424b, #13151a); filter: none; }
+.tile.store { background: linear-gradient(#38b4ff, #0860e8); filter: none; }
+.tile .glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 86px; color: #eceff1; }
+
+/* ---- Always-on clock panel (idle) ---- */
+#aod { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 600ms ease; pointer-events: none; }
+#aod-time { font-size: 220px; font-weight: 200; letter-spacing: .01em; text-shadow: 0 6px 30px rgba(0,0,0,.6); }
+#aod-date { font-size: 48px; font-weight: 400; margin-top: 10px; color: rgba(255,255,255,.95); }
+
+body.idle #dim { opacity: .5; }
+body.idle .tile { filter: saturate(.3) brightness(.4); }
+body.idle #hero, body.idle #top { opacity: 0; }
+body.deep #dim { opacity: .9; }
+body.deep #aod { opacity: 1; }
+
+/* ---- Startup wordmark ---- */
+#splash { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center;
+    z-index: 50; transition: opacity 650ms ease; }
+#splash span { font-size: 150px; font-weight: 200; letter-spacing: .22em; transform: scale(.92);
+    animation: splashIn 1300ms cubic-bezier(.22,.61,.36,1) forwards; }
+#splash.gone { opacity: 0; }
+@keyframes splashIn { to { transform: scale(1); } }

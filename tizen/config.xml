@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FSTV Launcher - Samsung Tizen TV (experimental).
+  Package id is exactly 10 alphanumeric chars (FSTVlaunch); the application id is <pkg>.<name>.
+  Privileges below are all "public" level, so a normal sideloaded (author-signed) app may use them.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+    id="http://fstv.local/tizenlauncher" version="0.1.0" viewmodes="maximized">
+    <tizen:application id="FSTVlaunch.FSTVLauncher" package="FSTVlaunch" required_version="2.4"/>
+    <name>FSTV Launcher</name>
+    <author>FSTV</author>
+    <description>A tvOS-style app launcher for Samsung TVs.</description>
+    <icon src="icon.png"/>
+    <content src="index.html"/>
+
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+
+    <!-- List installed apps and launch them. -->
+    <tizen:privilege name="http://tizen.org/privilege/application.info"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <!-- Register extra remote keys (color/media). Arrows + Enter + Back arrive without this. -->
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <!-- Keep the screen awake (also uses Samsung's webapis.appcommon.setScreenSaver). -->
+    <tizen:privilege name="http://tizen.org/privilege/power"/>
+
+    <tizen:profile name="tv"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable"
+        background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

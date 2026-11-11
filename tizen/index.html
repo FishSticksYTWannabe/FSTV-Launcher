@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=1920, height=1080, user-scalable=no">
+    <title>FSTV Launcher</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Wallpaper and the cycling photo screensaver live here, behind everything. -->
+    <div id="backdrop"></div>
+    <div id="screensaver"></div>
+    <div id="dim"></div>
+
+    <!-- Top-of-screen widgets. -->
+    <div id="top">
+        <div id="greeting-wrap">
+            <div id="greeting">Good evening</div>
+            <div id="date">&nbsp;</div>
+        </div>
+        <div id="clock">&nbsp;</div>
+    </div>
+
+    <!-- The big hero preview of the focused app. -->
+    <div id="hero">
+        <img id="hero-art" alt="">
+        <div id="hero-title">&nbsp;</div>
+    </div>
+
+    <!-- The app grid. Tiles are injected by js/apps.js. -->
+    <div id="stage">
+        <div id="grid"></div>
+    </div>
+    <div id="shelf"></div>
+
+    <!-- The always-on clock panel (shown when idle). -->
+    <div id="aod">
+        <div id="aod-time">&nbsp;</div>
+        <div id="aod-date">&nbsp;</div>
+    </div>
+
+    <!-- Cold-start wordmark. -->
+    <div id="splash"><span>FSTV</span></div>
+
+    <script src="js/apps.js"></script>
+    <script src="js/screensaver.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
