@@ -1,0 +1,5 @@
+# Shell scripts and on-device scripts must stay LF so they run on macOS/Linux and the TV.
+*.sh    text eol=lf
+# Windows scripts stay CRLF.
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
