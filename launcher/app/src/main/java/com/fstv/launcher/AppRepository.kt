@@ -126,7 +126,7 @@ class AppRepository(private val context: Context, private val ui: Ui) {
             val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                return AppEntry(KEY_LIVETV, "Live TV", intent, Kind.APP, null, iconRes = R.drawable.ic_livetv)
+                return AppEntry(KEY_LIVETV, "Inputs", intent, Kind.APP, null, iconRes = R.drawable.ic_livetv)
             }
         }
         return null
