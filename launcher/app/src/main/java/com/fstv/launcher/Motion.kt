@@ -30,6 +30,10 @@ class Ui(val screenW: Int, val screenH: Int) {
     val artH = ceil(tileH * (1 + focusGrow)).toInt()
     val heroW = px(720f).toInt()
     val heroH = px(405f).toInt()
+    // On-screen size and position of the big hero image at the top of the home screen.
+    val heroArtW = px(960f)
+    val heroArtH = px(372f)
+    val heroArtTop = px(150f)
 
     fun slotX(index: Int): Float = left + (index % columns) * (tileW + gapX) - pad
     fun slotY(index: Int): Float = firstRowY + (index / columns) * rowPitch - pad

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-bleed app store tile: azure gradient with a 2x2 rounded-apps grid (original glyph). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="160"
+    android:viewportHeight="90">
+    <path android:pathData="M0,0h160v90h-160z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="0" android:endY="90"
+                android:startColor="#38B4FF"
+                android:endColor="#0860E8" />
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M63,23.5 h9 a4.5,4.5 0 0 1 4.5,4.5 v9 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-9 a4.5,4.5 0 0 1 4.5,-4.5 z M88,23.5 h9 a4.5,4.5 0 0 1 4.5,4.5 v9 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-9 a4.5,4.5 0 0 1 4.5,-4.5 z M63,48.5 h9 a4.5,4.5 0 0 1 4.5,4.5 v9 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-9 a4.5,4.5 0 0 1 4.5,-4.5 z M88,48.5 h9 a4.5,4.5 0 0 1 4.5,4.5 v9 a4.5,4.5 0 0 1 -4.5,4.5 h-9 a4.5,4.5 0 0 1 -4.5,-4.5 v-9 a4.5,4.5 0 0 1 4.5,-4.5 z" />
+</vector>

@@ -20,6 +20,7 @@ class AppEntry(
     val info: ActivityInfo?,
     val glyph: String? = null,
     val iconRes: Int = 0,
+    val designed: Boolean = false,
 ) {
     lateinit var tile: Bitmap
     lateinit var backdrop: Bitmap
@@ -82,7 +83,13 @@ class AppRepository(private val context: Context, private val ui: Ui) {
             .addCategory(found.category)
             .setComponent(ComponentName(info.packageName, info.name))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        return AppEntry(info.packageName, info.loadLabel(pm).toString(), intent, Kind.APP, info)
+        val label = info.loadLabel(pm).toString()
+        // Give the Amazon Appstore our own clean, Apple-style tile instead of its stock icon.
+        if (info.packageName == APPSTORE_PKG) {
+            return AppEntry(info.packageName, label, intent, Kind.APP, null,
+                iconRes = R.drawable.ic_appstore, designed = true)
+        }
+        return AppEntry(info.packageName, label, intent, Kind.APP, info)
     }
 
     private fun specialTiles(showAll: Boolean): List<AppEntry> {
@@ -90,7 +97,7 @@ class AppRepository(private val context: Context, private val ui: Ui) {
 
         val settings = Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (pm.resolveActivity(settings, 0) != null) {
-            out += AppEntry(KEY_SETTINGS, "Settings", settings, Kind.SETTINGS, null, iconRes = R.drawable.ic_settings)
+            out += AppEntry(KEY_SETTINGS, "Settings", settings, Kind.SETTINGS, null, iconRes = R.drawable.ic_settings, designed = true)
         }
 
         // A way back to Amazon's home screen, so this launcher can never lock anyone out.
@@ -142,7 +149,8 @@ class AppRepository(private val context: Context, private val ui: Ui) {
     private class Source(val drawable: Drawable?, val isBanner: Boolean)
 
     private fun artFor(entry: AppEntry, bannerDensity: Int, iconDensity: Int): Source? = when {
-        entry.iconRes != 0 -> Source(context.getDrawable(entry.iconRes), false)
+        // Designed tiles are full-bleed (their own gradient + glyph), so composite them like a banner.
+        entry.iconRes != 0 -> Source(context.getDrawable(entry.iconRes), entry.designed)
         entry.info != null -> source(entry.info, bannerDensity, iconDensity)
         else -> null
     }
@@ -187,6 +195,7 @@ class AppRepository(private val context: Context, private val ui: Ui) {
 
     companion object {
         const val STOCK_LAUNCHER = "com.amazon.tv.launcher"
+        private const val APPSTORE_PKG = "com.amazon.venezia"
         private const val KEY_ORDER = "order"
         private const val KEY_SETTINGS = "@settings"
         private const val KEY_STOCK = "@stock"

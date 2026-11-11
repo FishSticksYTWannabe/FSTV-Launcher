@@ -376,14 +376,15 @@ class HeroView(context: Context, private val ui: Ui) : FrameLayout(context) {
     private var artFront = 0
     private var captionFront = 0
 
-    private val artW = ui.px(960f).toInt()
-    private val artH = ui.px(372f).toInt()
+    private val artW = ui.heroArtW.toInt()
+    private val artH = ui.heroArtH.toInt()
+    private val artTop = ui.heroArtTop
 
     init {
         clipChildren = false
         val artParams = LayoutParams(artW, artH)
         artParams.leftMargin = ((ui.screenW - artW) / 2f).toInt()
-        artParams.topMargin = ui.px(150f).toInt()
+        artParams.topMargin = artTop.toInt()
         addView(artHolder, artParams)
         for (art in arts) {
             artHolder.addView(art, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -422,6 +423,38 @@ class HeroView(context: Context, private val ui: Ui) : FrameLayout(context) {
 
     fun drift(time: Float) {
         artHolder.translationY = sin(time * 0.7f) * ui.px(7f)
+    }
+
+    /** True once a hero bitmap has been set, so it can be used for the open animation. */
+    fun hasArt(): Boolean = arts[artFront].drawable != null
+
+    /** Expands the hero art to fill the screen: the tvOS-style "open the app" animation. */
+    fun expand(duration: Long) {
+        artHolder.animate().cancel()
+        artHolder.pivotX = artW / 2f
+        artHolder.pivotY = artH / 2f
+        val cover = maxOf(ui.screenW.toFloat() / artW, ui.screenH.toFloat() / artH)
+        val centerY = artTop + artH / 2f
+        artHolder.animate()
+            .scaleX(cover).scaleY(cover)
+            .translationY(ui.screenH / 2f - centerY)
+            .setDuration(duration)
+            .setInterpolator(DECELERATE)
+            .start()
+        val caption = captions[captionFront]
+        caption.animate().cancel()
+        caption.animate().alpha(0f).setDuration(duration / 2).start()
+    }
+
+    /** Restores the hero to its resting size after returning from an opened app. */
+    fun resetExpand() {
+        artHolder.animate().cancel()
+        artHolder.scaleX = 1f
+        artHolder.scaleY = 1f
+        artHolder.translationY = 0f
+        val caption = captions[captionFront]
+        caption.animate().cancel()
+        caption.alpha = 1f
     }
 
     private fun crossSlide(outgoing: View, incoming: View, dir: Int, travel: Float) {
@@ -470,9 +503,11 @@ class HeroView(context: Context, private val ui: Ui) : FrameLayout(context) {
 class ShelfBar(context: Context, private val ui: Ui) : View(context) {
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val gleamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
     private val rect = RectF()
-    private val barH = ui.px(9f)
-    private val glowH = ui.px(40f)
+    private val barH = ui.px(6f)
+    private val gleamH = ui.px(1.6f)
+    private val glowH = ui.px(32f)
 
     private var cx = 0f
     private var cy = 0f
@@ -480,19 +515,19 @@ class ShelfBar(context: Context, private val ui: Ui) : View(context) {
     private var shown = 0f
 
     init {
-        // A vertical metallic gradient: light top edge, bright middle, darker bottom.
+        // A thin brushed-metal line: bright top edge, cool silver core, soft shadow at the base.
         barPaint.shader = LinearGradient(
             0f, -barH / 2f, 0f, barH / 2f,
-            intArrayOf(0xFFD6DBE2.toInt(), 0xFFF4F6FA.toInt(), 0xFF9AA1AC.toInt()),
-            floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP,
+            intArrayOf(0xFFFCFDFF.toInt(), 0xFFCED4DE.toInt(), 0xFF828A96.toInt()),
+            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP,
         )
     }
 
-    /** Positions the shelf under the focused tile. width scales with how focused it is. */
+    /** Positions the shelf under the focused tile. Width scales with how focused it is. */
     fun update(centerX: Float, baselineY: Float, tileWidth: Float, focus: Float) {
         cx = centerX
         cy = baselineY
-        halfW = tileWidth * (0.42f + 0.18f * focus)
+        halfW = tileWidth * (0.40f + 0.16f * focus)
         shown = focus
         invalidate()
     }
@@ -500,18 +535,23 @@ class ShelfBar(context: Context, private val ui: Ui) : View(context) {
     override fun onDraw(canvas: Canvas) {
         if (shown <= 0.01f) return
         val a = shown.coerceIn(0f, 1f)
-        // Soft glow pool beneath the bar.
+        // Cool reflective glow pooling under the tile.
+        val glowAlpha = (0x4D * a).toInt() shl 24
         glowPaint.shader = RadialGradient(
             cx, cy, halfW * 1.5f,
-            intArrayOf((0x33FFFFFF and 0xFFFFFF or ((0x33 * a).toInt() shl 24)), 0x00FFFFFF),
-            null, Shader.TileMode.CLAMP,
+            intArrayOf(glowAlpha or 0x00C2D6FF, 0x00C2D6FF),
+            floatArrayOf(0f, 1f), Shader.TileMode.CLAMP,
         )
         rect.set(cx - halfW * 1.5f, cy - glowH, cx + halfW * 1.5f, cy + glowH)
         canvas.drawRect(rect, glowPaint)
-        // The silver bar itself, rounded ends.
+        // The silver line itself, with rounded ends.
         barPaint.alpha = (255 * a).toInt()
         rect.set(cx - halfW, cy - barH / 2f, cx + halfW, cy + barH / 2f)
         canvas.drawRoundRect(rect, barH / 2f, barH / 2f, barPaint)
+        // A crisp specular gleam along the very top edge.
+        gleamPaint.alpha = (165 * a).toInt()
+        rect.set(cx - halfW * 0.88f, cy - barH / 2f, cx + halfW * 0.88f, cy - barH / 2f + gleamH)
+        canvas.drawRoundRect(rect, gleamH, gleamH, gleamPaint)
     }
 
     override fun hasOverlappingRendering(): Boolean = false

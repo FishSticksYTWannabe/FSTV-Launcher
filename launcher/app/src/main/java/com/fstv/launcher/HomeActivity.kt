@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Typeface
+import android.app.ActivityManager
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
@@ -59,6 +60,7 @@ class HomeActivity : Activity() {
     private var lastTime = ""
     private lateinit var launchVeil: View
     private lateinit var launchTile: ImageView
+    private lateinit var heroLaunch: ImageView
     private lateinit var shelf: ShelfBar
     private lateinit var deepVeil: View
     private lateinit var splash: TextView
@@ -198,6 +200,16 @@ class HomeActivity : Activity() {
             scaleType = ImageView.ScaleType.FIT_XY
             visibility = View.GONE
         }
+        // Overlay that holds the focused app's hero image and expands it to open the app. It sits
+        // above the grid (so the expansion is visible) but below the black launch veil.
+        heroLaunch = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            visibility = View.GONE
+        }
+        root.addView(heroLaunch, FrameLayout.LayoutParams(ui.heroArtW.toInt(), ui.heroArtH.toInt()).apply {
+            topMargin = ui.heroArtTop.toInt()
+            leftMargin = ((ui.screenW - ui.heroArtW) / 2f).toInt()
+        })
         root.addView(launchVeil, fullScreen())
         root.addView(launchTile, FrameLayout.LayoutParams(ui.tileW.toInt(), ui.tileH.toInt()))
 
@@ -215,6 +227,7 @@ class HomeActivity : Activity() {
         root.addView(splash, fullScreen())
         setContentView(root)
         if (savedInstanceState == null) playStartup()
+        GuardService.start(this)
         // Queued first, so a wallpaper is ready before the grid decides what to show behind it.
         loadWallpaper()
         reload(cascade = true)
@@ -224,6 +237,7 @@ class HomeActivity : Activity() {
     private fun playStartup() {
         try {
             MediaPlayer.create(this, R.raw.startup)?.apply {
+                setVolume(0.55f, 0.55f)
                 setOnCompletionListener { it.release() }
                 start()
             }
@@ -234,9 +248,9 @@ class HomeActivity : Activity() {
         splash.alpha = 1f
         splash.scaleX = 0.92f
         splash.scaleY = 0.92f
-        splash.animate().scaleX(1f).scaleY(1f).setDuration(900L)
+        splash.animate().scaleX(1f).scaleY(1f).setDuration(1300L)
             .setInterpolator(DecelerateInterpolator(2f)).start()
-        splash.animate().alpha(0f).setStartDelay(850L).setDuration(500L)
+        splash.animate().alpha(0f).setStartDelay(1700L).setDuration(650L)
             .withEndAction { splash.visibility = View.GONE }.start()
     }
 
@@ -255,6 +269,8 @@ class HomeActivity : Activity() {
         })
         updateClock()
         resetLaunchZoom()
+        // Back on the home screen: nothing else needs to stay warm, so reclaim their RAM.
+        trimBackground(null)
         if (cells.isNotEmpty()) loadWallpaper()
         cells.getOrNull(focusIndex)?.let { requestHero(it.entry, 1) }
     }
@@ -437,16 +453,27 @@ class HomeActivity : Activity() {
             return
         }
         val intent = entry.intent ?: return
-        playLaunchZoom(cell)
-        // No system animation: it would reveal Amazon's launcher, which sits behind this screen.
-        // The app starts right away and TV Home stays visible until the app has drawn.
-        try {
-            startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
-        } catch (_: Exception) {
-            resetLaunchZoom()
-            cell.bump(1, 0)
-            ticker.wake()
+        // Opening Amazon's launcher on purpose (the Fire TV Home tile): pause the guard briefly.
+        if (intent.component?.packageName == AppRepository.STOCK_LAUNCHER) {
+            GuardService.suppressUntil = SystemClock.uptimeMillis() + 8000L
         }
+        // Free RAM from other apps so the one we are opening has room (helps on this low-RAM TV).
+        trimBackground(intent.component?.packageName)
+        // Expand the hero only when it is actually on screen (top row); otherwise zoom the tile.
+        val useHero = hero.hasArt() && hero.alpha > 0.5f
+        if (useHero) playHeroLaunch(cell) else playLaunchZoom(cell)
+        // No system animation: it would reveal Amazon's launcher, which sits behind this screen.
+        val launch = Runnable {
+            try {
+                startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
+            } catch (_: Exception) {
+                resetLaunchZoom()
+                cell.bump(1, 0)
+                ticker.wake()
+            }
+        }
+        // Let the hero expand read for a moment before the app covers it; tiles open at once.
+        if (useHero) root.postDelayed(launch, LAUNCH_LEAD_MS) else launch.run()
     }
 
     /** Grows the opened tile to fill the screen, then fades to black while the app loads. */
@@ -473,12 +500,62 @@ class HomeActivity : Activity() {
         launchVeil.animate().alpha(1f).setStartDelay(LAUNCH_ZOOM_MS / 2).setDuration(LAUNCH_ZOOM_MS).start()
     }
 
+    /**
+     * Kills the background (cached) processes of the other apps on the home screen, freeing RAM for
+     * the app being launched. Only cached processes are killed, never the foreground app, so it is
+     * safe; it just means a backgrounded app will cold-start next time instead of staying warm.
+     */
+    private fun trimBackground(exceptPkg: String?) {
+        worker.execute {
+            val am = getSystemService(ACTIVITY_SERVICE) as? ActivityManager ?: return@execute
+            for (cell in cells) {
+                val pkg = cell.entry.intent?.component?.packageName ?: continue
+                if (pkg == exceptPkg || pkg == packageName) continue
+                try {
+                    am.killBackgroundProcesses(pkg)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    /** The tvOS-style open: the big hero image expands to fill the screen, then fades to black. */
+    private fun playHeroLaunch(cell: TileCell) {
+        val art = heroCache.get(cell.entry.key)
+        if (art == null) {
+            playLaunchZoom(cell)
+            return
+        }
+        heroLaunch.setImageBitmap(art)
+        heroLaunch.pivotX = ui.heroArtW / 2f
+        heroLaunch.pivotY = ui.heroArtH / 2f
+        heroLaunch.scaleX = 1f
+        heroLaunch.scaleY = 1f
+        heroLaunch.translationY = 0f
+        heroLaunch.alpha = 1f
+        heroLaunch.visibility = View.VISIBLE
+        val cover = maxOf(ui.screenW / ui.heroArtW, ui.screenH / ui.heroArtH)
+        val centerY = ui.heroArtTop + ui.heroArtH / 2f
+        heroLaunch.animate()
+            .scaleX(cover).scaleY(cover)
+            .translationY(ui.screenH / 2f - centerY)
+            .setDuration(HERO_LAUNCH_MS)
+            .setInterpolator(DecelerateInterpolator(2f))
+            .start()
+        launchVeil.visibility = View.VISIBLE
+        launchVeil.alpha = 0f
+        launchVeil.animate().alpha(1f).setStartDelay(HERO_LAUNCH_MS / 3).setDuration(HERO_LAUNCH_MS).start()
+    }
+
     private fun resetLaunchZoom() {
         launchTile.animate().cancel()
         launchVeil.animate().cancel()
         launchTile.visibility = View.GONE
         launchTile.setImageDrawable(null)
         launchVeil.visibility = View.GONE
+        heroLaunch.animate().cancel()
+        heroLaunch.visibility = View.GONE
+        heroLaunch.setImageDrawable(null)
     }
 
     private fun setEditing(on: Boolean) {
@@ -768,6 +845,8 @@ class HomeActivity : Activity() {
         private const val HINT_MS = 220L
         private const val CASCADE_SECONDS = 0.045f
         private const val LAUNCH_ZOOM_MS = 260L
+        private const val HERO_LAUNCH_MS = 380L
+        private const val LAUNCH_LEAD_MS = 180L
         private const val WALLPAPER_FILE = "wallpaper.jpg"
         private const val SLIDES_DIR = "screensaver"
         // TEST TIMERS: 10s to go inactive, 30s to near-off. Real values are 120_000 and 3_600_000.

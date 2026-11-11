@@ -44,6 +44,9 @@ Write-Host "Connected to: $model"
 Step "Installing FSTV Launcher"
 & $Adb -s $Target install -r -g $Apk | Select-Object -Last 1
 
+# Let the in-app home guard see the foreground app, so FSTV stays home with no PC needed.
+& $Adb -s $Target shell "appops set com.fstv.launcher android:get_usage_stats allow" 2>$null | Out-Null
+
 Step "Turning on the always-on look (never fully off, just dimmed) and faster animations"
 & $Adb -s $Target shell "settings put secure sleep_timeout -1"
 & $Adb -s $Target shell "settings put system screen_off_timeout 2147483647"
@@ -73,4 +76,5 @@ if ($amazonHome) {
 }
 
 & $Adb -s $Target shell "am start -n com.fstv.launcher/.HomeActivity" | Out-Null
+& $Adb -s $Target shell "am kill-all" | Out-Null   # free RAM so the first app launches fast
 Step "Done. Press Home on your remote - FSTV Launcher is ready."

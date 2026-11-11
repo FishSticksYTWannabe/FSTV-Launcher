@@ -44,6 +44,9 @@ echo "Connected to: $("$ADB" -s "$TARGET" shell getprop ro.product.model | tr -d
 step "Installing FSTV Launcher"
 "$ADB" -s "$TARGET" install -r -g "$APK" | tail -n1
 
+# Let the in-app home guard see the foreground app, so FSTV stays home with no PC needed.
+"$ADB" -s "$TARGET" shell "appops set com.fstv.launcher android:get_usage_stats allow" 2>/dev/null || true
+
 step "Turning on the always-on look (never fully off, just dimmed) and faster animations"
 "$ADB" -s "$TARGET" shell "settings put secure sleep_timeout -1"
 "$ADB" -s "$TARGET" shell "settings put system screen_off_timeout 2147483647"
@@ -70,4 +73,5 @@ else
 fi
 
 "$ADB" -s "$TARGET" shell "am start -n com.fstv.launcher/.HomeActivity" >/dev/null
+"$ADB" -s "$TARGET" shell "am kill-all" >/dev/null   # free RAM so the first app launches fast
 step "Done. Press Home on your remote - FSTV Launcher is ready."
