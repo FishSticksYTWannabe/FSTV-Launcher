@@ -9,6 +9,14 @@ Amazon's launcher.
 ![Android](https://img.shields.io/badge/Android-7.1%2B%20(API%2025)-3DDC84)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
+## Supported platforms
+
+FSTV is an Android app, so it runs on **Android-based TV systems only**:
+
+- **Fire OS** (Fire TV, Fire TV Edition TVs) — full support, including the reversible debloat and the Home takeover.
+- **Android TV / Google TV** — installs and can be set as the default Home in Settings (no debloat or guard needed).
+- **Not supported:** Samsung **Tizen**, LG **webOS**, **Roku OS**, Hisense **VIDAA**, and TiVo / Xumo **Entertainment OS** are not Android — they can't run APKs or let an app replace the home screen. Amazon's **Vega OS** (2025+ sticks) also blocks sideloading.
+
 ## Features
 
 - **tvOS-style grid** — rounded app tiles that lift, tilt and catch the light on focus, with spring
