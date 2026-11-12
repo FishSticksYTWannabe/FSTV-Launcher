@@ -174,7 +174,7 @@ class HomeActivity : Activity() {
         clockPanel = FrameLayout(this).apply { clipChildren = false; alpha = 0f }
         // Near-off screen shows a large analog clock; the inactive screen shows the digital one.
         analog = AnalogClockView(this, ui).apply { alpha = 0f }
-        clockPanel.addView(analog, FrameLayout.LayoutParams(ui.px(300f).toInt(), ui.px(300f).toInt(), Gravity.CENTER))
+        clockPanel.addView(analog, FrameLayout.LayoutParams(ui.px(560f).toInt(), ui.px(560f).toInt(), Gravity.CENTER))
         digitalGroup = FrameLayout(this).apply { clipChildren = false }
         bigA = makeBigClock()
         bigB = makeBigClock().apply { alpha = 0f }
@@ -776,7 +776,7 @@ class HomeActivity : Activity() {
         analog.scaleY = aScale
         bigDate.scaleX = 1f + 0.3f * deep
         bigDate.scaleY = 1f + 0.3f * deep
-        bigDate.translationY = ui.px(150f) + ui.px(250f) * deep
+        bigDate.translationY = ui.px(150f) + ui.px(360f) * deep
         if (deep > 0.01f) {
             val c = Calendar.getInstance()
             analog.setTime(c.get(Calendar.HOUR), c.get(Calendar.MINUTE), c.get(Calendar.SECOND))
@@ -855,7 +855,7 @@ class HomeActivity : Activity() {
         private const val INACTIVE_DIM = 0.5f
         private const val DEEP_DIM = 0.9f
         private const val CLOCK_TOP_FRAC = 0.24f
-        private const val ANALOG_GROW = 0.9f
+        private const val ANALOG_GROW = 0.2f
         private const val SLIDE_MS = 14_000L
 
         // Motion winds down when nobody is using the TV, so the GPU can rest.
