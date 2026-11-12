@@ -23,9 +23,25 @@ class GuardService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var usage: UsageStatsManager? = null
 
+    private var confirmedHome = false
+    private var lastProactive = 0L
+
     private val poll = object : Runnable {
         override fun run() {
-            if (SystemClock.uptimeMillis() >= suppressUntil && foreground() == AppRepository.STOCK_LAUNCHER) {
+            val fg = foreground()
+            if (fg == packageName) confirmedHome = true
+            // During the first stretch after a cold boot, usage access can still be unreadable
+            // (fg == null) while Amazon's launcher is already up. Pull FSTV forward in that window
+            // too - throttled, and only until we've seen FSTV foreground once - so the takeover is
+            // quick instead of waiting on Fire OS's late BOOT_COMPLETED. After the boot window we go
+            // strict: only bounce when Amazon's launcher is actually in front, so the guard never
+            // yanks the user out of an app they opened.
+            val now = SystemClock.uptimeMillis()
+            val booting = SystemClock.elapsedRealtime() < BOOT_GRACE_MS && !confirmedHome
+            val amazonUp = fg == AppRepository.STOCK_LAUNCHER
+            val proactive = booting && (amazonUp || fg == null) && now - lastProactive >= PROACTIVE_MS
+            if (now >= suppressUntil && (amazonUp || proactive)) {
+                lastProactive = now
                 startActivity(
                     Intent(this@GuardService, HomeActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
@@ -81,6 +97,12 @@ class GuardService : Service() {
         private const val POLL_MS = 250L
         private const val WINDOW_MS = 10_000L
         private const val NOTE_ID = 42
+
+        /** How long after a cold boot the guard may pull FSTV forward before usage access is ready. */
+        private const val BOOT_GRACE_MS = 90_000L
+
+        /** Minimum gap between proactive (boot-window) launch attempts, to avoid spamming. */
+        private const val PROACTIVE_MS = 1_200L
 
         fun start(context: Context) {
             try {
