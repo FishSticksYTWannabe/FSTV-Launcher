@@ -339,11 +339,15 @@ class HomeActivity : Activity() {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER,
+            KeyEvent.KEYCODE_SPACE,
             KeyEvent.KEYCODE_BUTTON_A -> {
                 handleSelect(event)
                 return true
             }
-            KeyEvent.KEYCODE_BACK -> {
+            KeyEvent.KEYCODE_BACK,
+            KeyEvent.KEYCODE_ESCAPE,
+            KeyEvent.KEYCODE_DEL,              // Backspace
+            KeyEvent.KEYCODE_FORWARD_DEL -> {  // Delete
                 if (event.action == KeyEvent.ACTION_UP) handleBack()
                 return true
             }
@@ -351,8 +355,26 @@ class HomeActivity : Activity() {
                 if (event.action == KeyEvent.ACTION_UP) setEditing(!editing)
                 return true
             }
+            // Tab / Shift+Tab: focus next / previous tile, like a web form.
+            KeyEvent.KEYCODE_TAB -> return handleMove(event, if (event.isShiftPressed) -1 else 1, 0)
+            // Page Up / Page Down: jump up or down one row.
+            KeyEvent.KEYCODE_PAGE_UP -> return handleMove(event, 0, -1)
+            KeyEvent.KEYCODE_PAGE_DOWN -> return handleMove(event, 0, 1)
+            // Home / End: jump to first or last tile (keyboard power-user shortcut).
+            KeyEvent.KEYCODE_MOVE_HOME -> return handleJump(event, 0)
+            KeyEvent.KEYCODE_MOVE_END -> return handleJump(event, cells.lastIndex)
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun handleJump(event: KeyEvent, target: Int): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN || cells.isEmpty() || target < 0) return true
+        if (target == focusIndex) return true
+        poke()
+        val direction = if (target > focusIndex) 1 else -1
+        changeFocus(target, direction, 0)
+        ticker.wake()
+        return true
     }
 
     private fun handleMove(event: KeyEvent, dx: Int, dy: Int): Boolean {
