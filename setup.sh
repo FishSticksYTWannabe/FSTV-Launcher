@@ -55,10 +55,10 @@ step "Turning on the always-on look (never fully off, just dimmed) and faster an
 "$ADB" -s "$TARGET" shell "settings put global transition_animation_scale 0.5"
 "$ADB" -s "$TARGET" shell "settings put global animator_duration_scale 0.5"
 
-step "Turning on HDMI-CEC (one remote controls connected devices: soundbars, consoles, players)"
-"$ADB" -s "$TARGET" shell "settings put global hdmi_control_enabled 1"
-"$ADB" -s "$TARGET" shell "settings put global hdmi_control_auto_wakeup_enabled 1"
-"$ADB" -s "$TARGET" shell "settings put global hdmi_control_auto_device_off_enabled 1"
+# HDMI-CEC is NOT auto-enabled: on some TVs (confirmed Toshiba Fire TV Edition), negotiating CEC
+# with a PS5 / Xbox / modern AVR can trick the TV into treating an external device as its audio
+# sink and mute its own speakers. Turn it on by hand once you know your HDMI chain handles it:
+#   adb shell settings put global hdmi_control_enabled 1
 
 FILES="/sdcard/Android/data/com.fstv.launcher/files"
 if [ -f "$ROOT/images/wallpaper.jpg" ]; then
