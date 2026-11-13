@@ -475,12 +475,13 @@ class HomeActivity : Activity() {
             return
         }
         val intent = entry.intent ?: return
-        // Opening Amazon's launcher on purpose (the Fire TV Home tile): hold the guard off long
-        // enough that the user can actually use it. 5 minutes is plenty for "I need something from
-        // the stock UI"; after that the guard resumes and a HOME press still brings FSTV back
-        // instantly.
+        // Opening Amazon's launcher on purpose (the Fire TV Home tile): leave the guard off while
+        // the user is actively using it. The guard watches for inactivity and bounces back after
+        // 5 min of no foreground events on the launcher - so a long browse is fine, but an idle
+        // screen comes home on its own. The 1-hour cap below is just a safety net in case the
+        // idle check ever misses; a HOME press returns to FSTV at any time.
         if (intent.component?.packageName == AppRepository.STOCK_LAUNCHER) {
-            GuardService.suppressUntil = SystemClock.uptimeMillis() + 5 * 60 * 1000L
+            GuardService.suppressUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
         }
         // Free RAM from other apps so the one we are opening has room (helps on this low-RAM TV).
         trimBackground(intent.component?.packageName)

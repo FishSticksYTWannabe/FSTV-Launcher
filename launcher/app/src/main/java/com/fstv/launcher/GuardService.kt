@@ -26,10 +26,19 @@ class GuardService : Service() {
     private var confirmedHome = false
     private var lastProactive = 0L
 
+    /** Wall-clock time of the last MOVE_TO_FOREGROUND event we saw for Amazon's launcher. */
+    private var amazonFreshAt = 0L
+
     private val poll = object : Runnable {
         override fun run() {
             val fg = foreground()
-            if (fg == packageName) confirmedHome = true
+            if (fg == packageName) {
+                confirmedHome = true
+                // The user is back on FSTV (probably via HOME): drop any lingering Fire TV Home
+                // "visit" so the next accidental trip to Amazon's launcher is bounced instantly.
+                suppressUntil = 0L
+                amazonFreshAt = 0L
+            }
             // During the first stretch after a cold boot, usage access can still be unreadable
             // (fg == null) while Amazon's launcher is already up. Pull FSTV forward in that window
             // too - throttled, and only until we've seen FSTV foreground once - so the takeover is
@@ -40,6 +49,22 @@ class GuardService : Service() {
             val booting = SystemClock.elapsedRealtime() < BOOT_GRACE_MS && !confirmedHome
             val amazonUp = fg == AppRepository.STOCK_LAUNCHER
             val proactive = booting && (amazonUp || fg == null) && now - lastProactive >= PROACTIVE_MS
+
+            // The Fire TV Home tile parks us on Amazon's launcher via suppressUntil. Cut the visit
+            // short once the user has been inactive for IDLE_TIMEOUT_MS: no new fg event for the
+            // launcher's package (tab switches and sub-activity navigation fire them; just staring
+            // at a banner does not). If they are still interacting, the timer keeps resetting.
+            if (amazonUp) {
+                val wallNow = System.currentTimeMillis()
+                if (amazonFreshAt == 0L) amazonFreshAt = wallNow
+                if (now < suppressUntil && wallNow - amazonFreshAt >= IDLE_TIMEOUT_MS) {
+                    suppressUntil = 0L
+                    amazonFreshAt = 0L
+                }
+            } else {
+                amazonFreshAt = 0L
+            }
+
             if (now >= suppressUntil && (amazonUp || proactive)) {
                 lastProactive = now
                 startActivity(
@@ -76,7 +101,14 @@ class GuardService : Service() {
         var pkg: String? = null
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) pkg = event.packageName
+            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                pkg = event.packageName
+                if (event.packageName == AppRepository.STOCK_LAUNCHER &&
+                    event.timeStamp > amazonFreshAt
+                ) {
+                    amazonFreshAt = event.timeStamp
+                }
+            }
         }
         return pkg
     }
@@ -93,8 +125,8 @@ class GuardService : Service() {
     companion object {
         /**
          * Until this uptime (ms), the guard leaves Amazon's launcher alone. Set when the user
-         * taps the "Fire TV Home" tile, so the escape hatch actually sticks instead of getting
-         * yanked back after a few seconds.
+         * taps the "Fire TV Home" tile. The idle check (see [IDLE_TIMEOUT_MS]) usually cuts the
+         * visit short well before this expires, and HOME resets it instantly.
          */
         @Volatile
         var suppressUntil = 0L
@@ -107,6 +139,9 @@ class GuardService : Service() {
 
         /** Minimum gap between proactive (boot-window) launch attempts, to avoid spamming. */
         private const val PROACTIVE_MS = 1_200L
+
+        /** During a Fire TV Home visit, bounce back after this long with no fg event on Amazon's launcher. */
+        private const val IDLE_TIMEOUT_MS = 5 * 60 * 1000L
 
         fun start(context: Context) {
             try {
