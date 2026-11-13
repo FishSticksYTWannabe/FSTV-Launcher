@@ -485,9 +485,24 @@ class HomeActivity : Activity() {
         }
         // Free RAM from other apps so the one we are opening has room (helps on this low-RAM TV).
         trimBackground(intent.component?.packageName)
-        // Expand the hero only when it is actually on screen (top row); otherwise zoom the tile.
-        val useHero = hero.hasArt() && hero.alpha > 0.5f
-        if (useHero) playHeroLaunch(cell) else playLaunchZoom(cell)
+        // Pick the open animation. Our system/designed tiles (Settings, Appstore, Fire TV Home,
+        // Inputs) carry a flat square iconRes instead of a real banner, so scaling them across
+        // the screen looks terrible and runs into a slow Amazon cold-start splash on the other
+        // side. For those, fade cleanly to black instead of stretching our icon; then hold the
+        // launch until the black is fully opaque so the system splash takes over from solid
+        // black, not from a half-transparent veil over the home screen.
+        val flatTile = entry.iconRes != 0
+        val useHero = hero.hasArt() && hero.alpha > 0.5f && !flatTile
+        val lead = when {
+            flatTile -> FADE_LAUNCH_MS
+            useHero -> LAUNCH_LEAD_MS
+            else -> 0L
+        }
+        when {
+            flatTile -> playFadeLaunch()
+            useHero -> playHeroLaunch(cell)
+            else -> playLaunchZoom(cell)
+        }
         // No system animation: it would reveal Amazon's launcher, which sits behind this screen.
         val launch = Runnable {
             try {
@@ -498,8 +513,18 @@ class HomeActivity : Activity() {
                 ticker.wake()
             }
         }
-        // Let the hero expand read for a moment before the app covers it; tiles open at once.
-        if (useHero) root.postDelayed(launch, LAUNCH_LEAD_MS) else launch.run()
+        if (lead > 0L) root.postDelayed(launch, lead) else launch.run()
+    }
+
+    /**
+     * Clean fade-to-black for tiles whose art is just a flat square icon (Settings, Appstore,
+     * Fire TV Home, Inputs). Scaling those across the screen looks like a stretched icon; this
+     * hides the rug-pull between our home screen and the slow Amazon splash that follows.
+     */
+    private fun playFadeLaunch() {
+        launchVeil.visibility = View.VISIBLE
+        launchVeil.alpha = 0f
+        launchVeil.animate().alpha(1f).setDuration(FADE_LAUNCH_MS).start()
     }
 
     /** Grows the opened tile to fill the screen, then fades to black while the app loads. */
@@ -873,6 +898,7 @@ class HomeActivity : Activity() {
         private const val LAUNCH_ZOOM_MS = 260L
         private const val HERO_LAUNCH_MS = 380L
         private const val LAUNCH_LEAD_MS = 180L
+        private const val FADE_LAUNCH_MS = 220L
         private const val WALLPAPER_FILE = "wallpaper.jpg"
         private const val SLIDES_DIR = "screensaver"
         // TEST TIMERS: 10s to go inactive, 30s to near-off. Real values are 120_000 and 3_600_000.
