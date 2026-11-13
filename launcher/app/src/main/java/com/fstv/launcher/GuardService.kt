@@ -91,7 +91,11 @@ class GuardService : Service() {
         .build()
 
     companion object {
-        /** While uptime < this, the guard leaves Amazon's launcher alone (the Fire TV Home escape). */
+        /**
+         * Until this uptime (ms), the guard leaves Amazon's launcher alone. Set when the user
+         * taps the "Fire TV Home" tile, so the escape hatch actually sticks instead of getting
+         * yanked back after a few seconds.
+         */
         @Volatile
         var suppressUntil = 0L
         private const val POLL_MS = 250L
