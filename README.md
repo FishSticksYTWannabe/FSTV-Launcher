@@ -8,6 +8,11 @@ Amazon's launcher.
 ![platform](https://img.shields.io/badge/platform-Fire%20TV%20%7C%20Android%20TV-333)
 ![Android](https://img.shields.io/badge/Android-7.1%2B%20(API%2025)-3DDC84)
 ![license](https://img.shields.io/badge/license-MIT-blue)
+![made with AI](https://img.shields.io/badge/coded%20100%25%20with-AI-8A3FFC)
+
+> **This project was coded completely with AI.** Every line — the Kotlin launcher, the build
+> system, and the setup scripts — was written by **Claude** (Anthropic's AI), built and debugged
+> live on a real Fire TV from plain-English direction.
 
 ## Supported platforms
 
