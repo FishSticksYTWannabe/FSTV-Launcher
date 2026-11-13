@@ -28,6 +28,7 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import java.io.File
 import java.text.SimpleDateFormat
@@ -64,6 +65,7 @@ class HomeActivity : Activity() {
     private lateinit var shelf: ShelfBar
     private lateinit var deepVeil: View
     private lateinit var splash: TextView
+    private lateinit var splashSpinner: ProgressBar
 
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
@@ -225,6 +227,15 @@ class HomeActivity : Activity() {
             visibility = View.GONE
         }
         root.addView(splash, fullScreen())
+        // Loading spinner the typed wordmark hands off to, briefly, before the home screen fades in.
+        splashSpinner = ProgressBar(this).apply {
+            isIndeterminate = true
+            visibility = View.GONE
+        }
+        val spinnerSize = ui.px(96f).toInt()
+        root.addView(splashSpinner, FrameLayout.LayoutParams(spinnerSize, spinnerSize).apply {
+            gravity = Gravity.CENTER
+        })
         setContentView(root)
         if (savedInstanceState == null) playStartup()
         GuardService.start(this)
@@ -233,7 +244,11 @@ class HomeActivity : Activity() {
         reload(cascade = true)
     }
 
-    /** Plays the chime and reveals the FSTV wordmark, then dissolves into the home screen. */
+    /**
+     * Startup animation: the FSTV wordmark scales in, a terminal-style cursor appears next to it,
+     * " Launcher" types out one character at a time, the whole word fades into a loading spinner
+     * for a beat under two seconds, then the home screen takes over.
+     */
     private fun playStartup() {
         try {
             MediaPlayer.create(this, R.raw.startup)?.apply {
@@ -244,14 +259,35 @@ class HomeActivity : Activity() {
         } catch (_: Exception) {
             // Audio is optional; the visuals still play.
         }
+        splash.text = "FSTV"
         splash.visibility = View.VISIBLE
         splash.alpha = 1f
         splash.scaleX = 0.92f
         splash.scaleY = 0.92f
-        splash.animate().scaleX(1f).scaleY(1f).setDuration(1300L)
+        splash.animate().scaleX(1f).scaleY(1f).setDuration(900L)
             .setInterpolator(DecelerateInterpolator(2f)).start()
-        splash.animate().alpha(0f).setStartDelay(1700L).setDuration(650L)
+        handler.postDelayed({ typeTail("FSTV", " | Launcher", 0) }, SPLASH_HOLD_MS)
+    }
+
+    private fun typeTail(head: String, tail: String, pos: Int) {
+        if (pos > tail.length) {
+            handler.postDelayed({ splashToSpinner() }, SPLASH_PAUSE_MS)
+            return
+        }
+        splash.text = head + tail.substring(0, pos)
+        handler.postDelayed({ typeTail(head, tail, pos + 1) }, SPLASH_TYPE_MS)
+    }
+
+    private fun splashToSpinner() {
+        splash.animate().alpha(0f).setDuration(350L)
             .withEndAction { splash.visibility = View.GONE }.start()
+        splashSpinner.visibility = View.VISIBLE
+        splashSpinner.alpha = 0f
+        splashSpinner.animate().alpha(1f).setDuration(350L).start()
+        handler.postDelayed({
+            splashSpinner.animate().alpha(0f).setDuration(400L)
+                .withEndAction { splashSpinner.visibility = View.GONE }.start()
+        }, SPLASH_SPINNER_MS)
     }
 
     override fun onStart() {
@@ -899,6 +935,10 @@ class HomeActivity : Activity() {
         private const val HERO_LAUNCH_MS = 380L
         private const val LAUNCH_LEAD_MS = 180L
         private const val FADE_LAUNCH_MS = 220L
+        private const val SPLASH_HOLD_MS = 850L
+        private const val SPLASH_TYPE_MS = 75L
+        private const val SPLASH_PAUSE_MS = 400L
+        private const val SPLASH_SPINNER_MS = 1500L
         private const val WALLPAPER_FILE = "wallpaper.jpg"
         private const val SLIDES_DIR = "screensaver"
         // TEST TIMERS: 10s to go inactive, 30s to near-off. Real values are 120_000 and 3_600_000.
