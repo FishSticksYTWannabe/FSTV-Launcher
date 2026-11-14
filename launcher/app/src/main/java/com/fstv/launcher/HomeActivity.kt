@@ -911,9 +911,14 @@ class HomeActivity : Activity() {
         cornerDate.alpha = topFade
         // Genuinely dark idle: a full-screen veil dims everything (inactive) then nearly blacks it out (near-off).
         deepVeil.alpha = INACTIVE_DIM * inactive + (DEEP_DIM - INACTIVE_DIM) * deep
-        // Clock panel fades in and sits up top when inactive; near-off centers and enlarges it.
+        // Clock panel fades + shrinks in when inactive (so exiting idle it visibly recedes rather
+        // than popping out), sits up top clear of the first row of tiles, then centers and
+        // enlarges when near-off.
         clockPanel.alpha = inactive
         clockPanel.translationY = -ui.screenH * CLOCK_TOP_FRAC * (1f - deep)
+        val clockScale = CLOCK_SHRUNK_SCALE + (1f - CLOCK_SHRUNK_SCALE) * inactive
+        clockPanel.scaleX = clockScale
+        clockPanel.scaleY = clockScale
         // Digital fades out and the analog grows in as the TV slides from inactive to near-off.
         digitalGroup.alpha = 1f - deep
         analog.alpha = deep
@@ -1010,7 +1015,11 @@ class HomeActivity : Activity() {
         private const val DEEP_IDLE_MS = 3_600_000L
         private const val INACTIVE_DIM = 0.5f
         private const val DEEP_DIM = 0.9f
-        private const val CLOCK_TOP_FRAC = 0.24f
+        // How far up the clock panel sits in inactive mode, as a fraction of screen height. Tuned
+        // so the big digital time and the date land clearly above the first row of tiles.
+        private const val CLOCK_TOP_FRAC = 0.38f
+        // How small the clock shrinks to while fully exited from idle (purely a transition look).
+        private const val CLOCK_SHRUNK_SCALE = 0.55f
         private const val ANALOG_GROW = 0.2f
         private const val SLIDE_MS = 14_000L
 
