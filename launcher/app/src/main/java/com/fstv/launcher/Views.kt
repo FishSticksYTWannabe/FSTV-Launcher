@@ -552,6 +552,9 @@ class Backdrop(context: Context, private val ui: Ui) : FrameLayout(context) {
 
     var motion = BackdropMotion.BLURRED
 
+    /** How far the grid has scrolled, in screen pixels. Drives a shallow parallax drift. */
+    var scroll = 0f
+
     init {
         addView(under, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         addView(over, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -614,7 +617,9 @@ class Backdrop(context: Context, private val ui: Ui) : FrameLayout(context) {
         scaleX = zoom.value
         scaleY = zoom.value
         translationX = panX.value
-        translationY = panY.value
+        // Shallow parallax: the backdrop drifts up a fraction of the grid's scroll, so rows feel
+        // like they slide over a deeper layer rather than against a flat picture.
+        translationY = panY.value - scroll * SCROLL_PARALLAX
         return fading || settling || moving
     }
 
@@ -623,6 +628,9 @@ class Backdrop(context: Context, private val ui: Ui) : FrameLayout(context) {
     private companion object {
         const val BLUR_ZOOM = 1.12f
         const val SLIDE_ZOOM = 1.06f
+        // How much of the grid's scroll the backdrop takes on. Small values (< 0.2) read as depth;
+        // larger ones feel like the whole screen is drifting.
+        const val SCROLL_PARALLAX = 0.12f
     }
 }
 

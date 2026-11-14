@@ -957,6 +957,8 @@ class HomeActivity : Activity() {
             focusGlow.update(0f, 0f, ui.tileW, 0f)
         }
 
+        // Feed the backdrop the grid's current scroll so it can drift with a bit of parallax.
+        backdrop.scroll = scroll.value
         moving = backdrop.tick(dt, time, ambient) || moving
         if (ambient) hero.drift(time)
         return moving || ambient || idleMode
