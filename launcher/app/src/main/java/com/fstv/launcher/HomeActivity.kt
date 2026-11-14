@@ -46,6 +46,7 @@ class HomeActivity : Activity() {
     private lateinit var aerial: AerialView
     private var aerialActive = false
     private lateinit var backdrop: Backdrop
+    private lateinit var vignette: Vignette
     private lateinit var hero: HeroView
     private lateinit var grid: FrameLayout
     private lateinit var clock: TextView
@@ -134,6 +135,7 @@ class HomeActivity : Activity() {
         }
         aerial = AerialView(this)
         backdrop = Backdrop(this, ui)
+        vignette = Vignette(this, ui)
         hero = HeroView(this, ui)
         shelf = ShelfBar(this, ui)
         grid = FrameLayout(this).apply { clipChildren = false }
@@ -151,6 +153,8 @@ class HomeActivity : Activity() {
         // wallpaper is active, and takes over for idle photos.
         root.addView(aerial, fullScreen())
         root.addView(backdrop, fullScreen())
+        // Soft vignette above the picture, below the UI: draws the eye to center, tvOS-style.
+        root.addView(vignette, fullScreen())
         // tvOS-style: the full-screen blurred backdrop is "the hero". Keep the hero view in the
         // tree so its callers still resolve (showArt, hasArt, expand), but make it invisible and
         // zero-alpha so the grid has the stage to itself.

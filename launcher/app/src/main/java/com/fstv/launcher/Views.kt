@@ -418,6 +418,40 @@ class AerialView(context: Context) : TextureView(context) {
     }
 }
 
+/**
+ * A screen-edge vignette: a radial gradient from transparent at the middle to a soft dark
+ * band around the corners. Sits above the backdrop but below the grid/clock, so everything
+ * else is unchanged while the picture quietly draws the eye to the center. Classic tvOS.
+ */
+@SuppressLint("ViewConstructor")
+class Vignette(context: Context, private val ui: Ui) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }
+
+    init {
+        setLayerType(LAYER_TYPE_HARDWARE, null)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        if (w == 0 || h == 0) return
+        val cx = w / 2f
+        val cy = h / 2f
+        // Reach to the furthest corner so the darkest stop is pinned to the corners.
+        val radius = kotlin.math.hypot(cx, cy)
+        paint.shader = RadialGradient(
+            cx, cy, radius,
+            intArrayOf(0x00000000, 0x00000000, 0x33000000, 0x66000000),
+            floatArrayOf(0f, 0.55f, 0.85f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    }
+
+    override fun hasOverlappingRendering(): Boolean = false
+}
+
 /** How the backdrop moves: a drifting blur, a still wallpaper, or a slow pan across photos. */
 enum class BackdropMotion { BLURRED, STILL, SLIDESHOW }
 
