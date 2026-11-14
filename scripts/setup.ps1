@@ -78,6 +78,13 @@ if (Test-Path (Join-Path $Root "images\wallpaper.jpg")) {
     }
 }
 
+$tilesSrc = Join-Path $Root "images\tiles"
+if (Test-Path $tilesSrc) {
+    Step "Copying your custom tile art (icon pack)"
+    & $Adb -s $Target shell "mkdir -p $files/tiles"
+    & $Adb -s $Target push "$tilesSrc\." "$files/tiles/" | Out-Null
+}
+
 Step "Setting the grid to $Columns columns"
 & $Adb -s $Target shell "mkdir -p $files; echo $Columns > $files/columns"
 

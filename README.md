@@ -30,6 +30,9 @@ FSTV is an Android app, so it runs on **Android-based TV systems only**:
   screen dims and a large digital clock fills the top; after an hour it becomes an Apple-style
   near-off screen with a big analog clock over a dimmed photo.
 - **Photo screensaver + wallpaper** — your own images cycle instead of the TV sleeping.
+- **Icon pack** — drop your own tile art into `images/tiles/<package>.png` and setup pushes it
+  to the TV; works for any app or for the built-in Settings / Inputs / Fire TV Home tiles. See
+  `images/tiles/README.txt` for the naming convention.
 - **Live TV / Inputs tile** — opens your TV's source app to switch inputs, when it has one
   (brand-agnostic).
 - **HDMI-CEC on by default** — setup turns on CEC so one remote drives connected soundbars,

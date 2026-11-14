@@ -6,9 +6,12 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.provider.Settings
 import android.util.DisplayMetrics
+import java.io.File
 
 enum class Kind { APP, SETTINGS, MORE }
 
@@ -30,6 +33,8 @@ class AppEntry(
 class AppRepository(private val context: Context, private val ui: Ui) {
     private val pm = context.packageManager
     private val prefs = context.getSharedPreferences("home", Context.MODE_PRIVATE)
+    // setup.(sh|ps1) pushes PNGs here; null when external storage is not ready yet.
+    private val tilesDir: File? = context.getExternalFilesDir(null)?.let { File(it, "tiles") }
 
     private class Found(val info: ActivityInfo, val category: String, val isTvApp: Boolean)
 
@@ -148,11 +153,33 @@ class AppRepository(private val context: Context, private val ui: Ui) {
 
     private class Source(val drawable: Drawable?, val isBanner: Boolean)
 
-    private fun artFor(entry: AppEntry, bannerDensity: Int, iconDensity: Int): Source? = when {
-        // Designed tiles are full-bleed (their own gradient + glyph), so composite them like a banner.
-        entry.iconRes != 0 -> Source(context.getDrawable(entry.iconRes), entry.designed)
-        entry.info != null -> source(entry.info, bannerDensity, iconDensity)
-        else -> null
+    private fun artFor(entry: AppEntry, bannerDensity: Int, iconDensity: Int): Source? {
+        // User-supplied tile at tiles/<key>.(png|jpg|webp) always wins; the stripped @ keeps the
+        // filename readable. This lets anyone replace ugly stock icons without touching the APK.
+        overrideFor(entry)?.let { return it }
+        return when {
+            // Designed tiles are full-bleed (their own gradient + glyph), so composite them like a banner.
+            entry.iconRes != 0 -> Source(context.getDrawable(entry.iconRes), entry.designed)
+            entry.info != null -> source(entry.info, bannerDensity, iconDensity)
+            else -> null
+        }
+    }
+
+    private fun overrideFor(entry: AppEntry): Source? {
+        val dir = tilesDir ?: return null
+        val name = entry.key.trimStart('@')
+        for (ext in TILE_EXTS) {
+            val file = File(dir, "$name.$ext")
+            if (!file.isFile) continue
+            val bitmap = try {
+                BitmapFactory.decodeFile(file.absolutePath)
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            // Treat overrides as full-bleed banners: Art.base will fit-center them into the tile.
+            return Source(BitmapDrawable(context.resources, bitmap), true)
+        }
+        return null
     }
 
     /** Prefers the wide TV banner and falls back to the icon. */
@@ -223,5 +250,6 @@ class AppRepository(private val context: Context, private val ui: Ui) {
             "com.amazon.shoptv.firetv.client",
             "com.droidlogic.tvsource",   // shown via the dedicated "Live TV" tile instead
         )
+        private val TILE_EXTS = listOf("png", "jpg", "jpeg", "webp")
     }
 }

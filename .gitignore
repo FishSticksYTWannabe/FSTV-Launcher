@@ -20,7 +20,11 @@ launcher/captures/
 logs/
 
 # --- Personal media: add your own wallpaper + screensaver images ---
-images/
+# Ignore everything under images/ except the icon-pack README (so new clones see the folder).
+images/*
+!images/tiles/
+images/tiles/*
+!images/tiles/README.txt
 /*.jpg
 /*.jpeg
 /*.JPG

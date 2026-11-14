@@ -78,6 +78,12 @@ if [ -f "$ROOT/images/wallpaper.jpg" ]; then
   [ -d "$ROOT/images/screensaver" ] && "$ADB" -s "$TARGET" push "$ROOT/images/screensaver" "$FILES/" >/dev/null || true
 fi
 
+if [ -d "$ROOT/images/tiles" ]; then
+  step "Copying your custom tile art (icon pack)"
+  "$ADB" -s "$TARGET" shell "mkdir -p $FILES/tiles"
+  "$ADB" -s "$TARGET" push "$ROOT/images/tiles/." "$FILES/tiles/" >/dev/null
+fi
+
 step "Setting the grid to $COLUMNS_VAL columns"
 "$ADB" -s "$TARGET" shell "mkdir -p $FILES; echo $COLUMNS_VAL > $FILES/columns"
 
