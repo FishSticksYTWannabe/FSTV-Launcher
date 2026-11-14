@@ -32,6 +32,13 @@ FSTV is an Android app, so it runs on **Android-based TV systems only**:
 - **Photo screensaver + wallpaper** — your own images cycle instead of the TV sleeping.
 - **Live TV / Inputs tile** — opens your TV's source app to switch inputs, when it has one
   (brand-agnostic).
+- **HDMI-CEC on by default** — setup turns on CEC so one remote drives connected soundbars,
+  consoles and players, and a device turning on wakes the TV. See the setup script for a note on
+  PS5 audio and the Linear PCM fix.
+- **5-min auto-return from dead inputs** — if an external HDMI device (PS5, console, player) is
+  the active source but has been in standby for five minutes, FSTV presses HOME on your behalf
+  (via CEC One Touch Play) so you come back to the launcher instead of a black "No Signal"
+  screen.
 - **Home takeover** (Fire OS) — a small on-device script returns you to FSTV whenever Fire OS tries
   to show Amazon's launcher, which can't be removed without root.
 - **Reversible debloat** — `pm disable-user` helpers with a one-command restore that puts the TV back

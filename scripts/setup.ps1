@@ -55,10 +55,13 @@ Step "Turning on the always-on look (never fully off, just dimmed) and faster an
 & $Adb -s $Target shell "settings put global transition_animation_scale 0.5"
 & $Adb -s $Target shell "settings put global animator_duration_scale 0.5"
 
-# HDMI-CEC is NOT auto-enabled: on some TVs (confirmed Toshiba Fire TV Edition), negotiating CEC
-# with a PS5 / Xbox / modern AVR can trick the TV into treating an external device as its audio
-# sink and mute its own speakers. Turn it on by hand once you know your HDMI chain handles it:
-#   adb shell settings put global hdmi_control_enabled 1
+Step "Turning on HDMI-CEC (one remote, auto-wake, and the 5-min auto-return from dead inputs)"
+& $Adb -s $Target shell "settings put global hdmi_control_enabled 1"                # master CEC switch
+& $Adb -s $Target shell "settings put global hdmi_control_auto_wakeup_enabled 1"    # a device turning on wakes the TV
+& $Adb -s $Target shell "settings put global hdmi_control_auto_device_off_enabled 1" # TV off -> connected devices standby
+# Note: on some TVs (confirmed Toshiba Fire TV Edition), a PS5 may renegotiate HDMI audio to
+# Dolby bitstream after CEC handshakes and lose TV-speaker sound. Fix on the PS5 side:
+# Settings > Sound > Audio Output > Audio Format (Priority) > Linear PCM.
 
 $files = "/sdcard/Android/data/com.fstv.launcher/files"
 if (Test-Path (Join-Path $Root "images\wallpaper.jpg")) {
