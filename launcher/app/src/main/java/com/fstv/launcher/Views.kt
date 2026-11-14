@@ -10,6 +10,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
@@ -69,11 +71,21 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
 
     private var shadowAlpha = 0
     private var glareAlpha = 0
+    private var reflectAlpha = 0
     private var lightX = 0f
     private var lightY = 0f
     private var shadowDrop = 0f
     private var gray = 0f
     private var shineProgress = -1f    // -1 = idle, 0..1 = sweeping, >1 = done
+
+    // tvOS-style mirror reflection under the focused tile. The paint draws the flipped art into
+    // a translucent layer; the mask paint then composites a vertical fade on top so the bottom of
+    // the reflection softens away. Shaders are built once (lazy) in onDraw when the bounds exist.
+    private val reflectPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val reflectMaskPaint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
+    private val reflectLayerPaint = Paint()
+    private var reflectMaskShader: LinearGradient? = null
+    private val reflectRect = RectF()
 
     init {
         val inset = Art.INSET * ui.tileW / ui.artW
@@ -85,13 +97,15 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
         val f = focus.coerceIn(0f, 1f)
         val nextShadow = (f * SHADOW_MAX).toInt()
         val nextGlare = (f * 255f).toInt()
+        val nextReflect = (f * REFLECT_MAX).toInt()
         val nextX = cardRect.centerX() - tiltX * ui.tileW * 0.7f
         val nextY = cardRect.top + ui.tileH * 0.1f + tiltY * ui.tileH * 0.9f
         val nextDrop = ui.px(10f) + f * ui.px(26f)
         val moved = abs(nextX - lightX) > 0.5f || abs(nextY - lightY) > 0.5f
-        if (nextShadow == shadowAlpha && nextGlare == glareAlpha && !moved) return
+        if (nextShadow == shadowAlpha && nextGlare == glareAlpha && nextReflect == reflectAlpha && !moved) return
         shadowAlpha = nextShadow
         glareAlpha = nextGlare
+        reflectAlpha = nextReflect
         lightX = nextX
         lightY = nextY
         shadowDrop = nextDrop
@@ -134,6 +148,33 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
             shadowPaint.alpha = shadowAlpha
             canvas.drawBitmap(shadow, null, shadowRect, shadowPaint)
         }
+        // Reflection: drawn BEFORE the tile art so it sits beneath the card visually. The flipped
+        // bitmap is rendered into an off-screen layer whose top is the card's bottom; a vertical
+        // alpha gradient then softens the lower edge via DST_IN.
+        if (reflectAlpha > 0) {
+            val reflH = ui.pad * 0.8f
+            reflectRect.set(cardRect.left, cardRect.bottom, cardRect.right, cardRect.bottom + reflH)
+            if (reflectMaskShader == null) {
+                reflectMaskShader = LinearGradient(
+                    0f, reflectRect.top, 0f, reflectRect.bottom,
+                    0xFFFFFFFF.toInt(), 0x00FFFFFF,
+                    Shader.TileMode.CLAMP,
+                )
+                reflectMaskPaint.shader = reflectMaskShader
+            }
+            reflectLayerPaint.alpha = reflectAlpha
+            val saved = canvas.saveLayer(reflectRect, reflectLayerPaint)
+            canvas.clipRect(reflectRect)
+            canvas.save()
+            // Flip vertically across y = cardRect.bottom, so the bottom edge of the art stays put
+            // and the rest of the bitmap extends downward in mirror form.
+            canvas.translate(0f, 2f * cardRect.bottom)
+            canvas.scale(1f, -1f)
+            canvas.drawBitmap(art, null, artRect, reflectPaint)
+            canvas.restore()
+            canvas.drawRect(reflectRect, reflectMaskPaint)
+            canvas.restoreToCount(saved)
+        }
         canvas.drawBitmap(art, null, artRect, artPaint)
         if (glareAlpha > 0) {
             glareMatrix.setTranslate(lightX, lightY)
@@ -160,6 +201,9 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
 
     private companion object {
         const val SHADOW_MAX = 215f
+        // Peak reflection alpha when the tile is fully focused. The mask gradient softens the
+        // lower edge on top of this, so what actually hits the screen is well under this value.
+        const val REFLECT_MAX = 120f
         // Light touch only: the real darkening of idle comes from a full-screen dim veil.
         const val GRAY_DESATURATE = 0.28f
         const val GRAY_DARKEN = 0.05f

@@ -14,8 +14,8 @@ android {
         // Encodes the semver: MAJOR * 10000 + MINOR * 100 + PATCH.
         // Room for 99 patches per minor and 99 minors per major, so 0.2.1 -> 201, 0.2.47 -> 247,
         // 0.3.0 -> 300, 1.0.0 -> 10000. Android only cares that this grows across releases.
-        versionCode = 307
-        versionName = "0.3.7"
+        versionCode = 308
+        versionName = "0.3.8"
     }
 
     buildTypes {
