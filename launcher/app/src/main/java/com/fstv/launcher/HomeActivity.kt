@@ -122,7 +122,7 @@ class HomeActivity : Activity() {
         // The idle photos replace sleep and Amazon's screensaver while this screen is showing.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val size = Point().also { windowManager.defaultDisplay.getRealSize(it) }
-        ui = Ui(size.x, size.y)
+        ui = Ui(size.x, size.y, readColumns())
         repo = AppRepository(this, ui)
         shadow = Art.shadow(ui)
 
@@ -691,6 +691,20 @@ class HomeActivity : Activity() {
         presentFocused(0, 0)
         if (idleMode) cells.forEach { it.setDimmed(true) }
         poke()
+    }
+
+    /**
+     * How many tiles per row. Setup writes a tiny text file under this app's external files dir
+     * ("columns") with a single integer; absence or anything out of 4..8 falls back to 5.
+     */
+    private fun readColumns(): Int {
+        val file = File(getExternalFilesDir(null) ?: return 5, "columns")
+        if (!file.isFile) return 5
+        return try {
+            file.readText().trim().toIntOrNull()?.coerceIn(4, 8) ?: 5
+        } catch (_: Exception) {
+            5
+        }
     }
 
     private fun loadWallpaper() {

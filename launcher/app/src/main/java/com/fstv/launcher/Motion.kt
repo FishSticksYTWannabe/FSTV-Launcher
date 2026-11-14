@@ -6,15 +6,19 @@ import kotlin.math.ceil
 import kotlin.math.min
 
 /** Layout values, authored against a 1920x1080 screen and scaled to the real one. */
-class Ui(val screenW: Int, val screenH: Int) {
+class Ui(val screenW: Int, val screenH: Int, cols: Int = 5) {
     private val scale = screenW / 1920f
     fun px(value: Float): Float = value * scale
 
-    val columns = 5
-    val tileW = px(312f)
-    val tileH = px(176f)
+    // The grid's width fills the same horizontal band regardless of column count; tileW shrinks
+    // to fit. 5 columns are the roomy default; 6 or 7 pack more without a scroll.
+    val columns = cols.coerceIn(4, 8)
     val gapX = px(40f)
-    val rowPitch = px(282f)
+    private val sideMargin = px(100f)
+    val tileW = (screenW - 2 * sideMargin - gapX * (columns - 1)) / columns
+    // Keep the ~16:9 banner aspect the renderer expects.
+    val tileH = tileW * (176f / 312f)
+    val rowPitch = tileH + px(106f)
     val left = (screenW - (tileW * columns + gapX * (columns - 1))) / 2f
     // Where the grid sits, measured from the top. With the big hero image removed, the grid is
     // now the only content - tvOS leaves generous empty space above it for the backdrop to breathe.

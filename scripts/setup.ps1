@@ -2,7 +2,7 @@
 # Reads your TV's IP from tv-config.cmd (or asks). Run 2-build.cmd first to build the app.
 # Started by double-clicking setup.cmd in the folder above.
 
-param([string]$TvIp = "")
+param([string]$TvIp = "", [int]$Columns = 0)
 
 $Root = Split-Path -Parent $PSScriptRoot
 $Adb  = Join-Path $Root "platform-tools\adb.exe"
@@ -10,13 +10,18 @@ $Apk  = Join-Path $Root "out\TvHome.apk"
 
 function Step($m) { Write-Host ""; Write-Host "==> $m" -ForegroundColor Cyan }
 
+$cfg = Join-Path $Root "tv-config.cmd"
 if (-not $TvIp) {
-    $cfg = Join-Path $Root "tv-config.cmd"
     if (Test-Path $cfg) {
         $m = Select-String -Path $cfg -Pattern 'TV_IP=(\S+)' | Select-Object -First 1
         if ($m) { $TvIp = $m.Matches[0].Groups[1].Value }
     }
 }
+if ($Columns -le 0 -and (Test-Path $cfg)) {
+    $m = Select-String -Path $cfg -Pattern 'COLUMNS=(\d+)' | Select-Object -First 1
+    if ($m) { $Columns = [int]$m.Matches[0].Groups[1].Value }
+}
+if ($Columns -lt 4 -or $Columns -gt 8) { $Columns = 5 }   # sensible range
 if (-not $TvIp) { $TvIp = (Read-Host "Enter your TV's IP address (Settings > About > Network)").Trim() }
 if (-not $TvIp) { Write-Host "No TV IP given." -ForegroundColor Red; exit 1 }
 $Target = "${TvIp}:5555"
@@ -72,6 +77,9 @@ if (Test-Path (Join-Path $Root "images\wallpaper.jpg")) {
         & $Adb -s $Target push (Join-Path $Root "images\screensaver") "$files/" | Out-Null
     }
 }
+
+Step "Setting the grid to $Columns columns"
+& $Adb -s $Target shell "mkdir -p $files; echo $Columns > $files/columns"
 
 $amazonHome = (& $Adb -s $Target shell "pm list packages com.amazon.tv.launcher" | Out-String).Trim()
 if ($amazonHome) {

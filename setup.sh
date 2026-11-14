@@ -27,6 +27,13 @@ fi
 [ -z "$TV_IP" ] && { echo "No TV IP given." >&2; exit 1; }
 TARGET="$TV_IP:5555"
 
+# ---- Columns (grid width): COLUMNS env var, then tv-config.cmd, else 5 -------
+COLUMNS_VAL="${COLUMNS:-}"
+if [ -z "$COLUMNS_VAL" ] && [ -f "$ROOT/tv-config.cmd" ]; then
+  COLUMNS_VAL="$(grep -oE 'COLUMNS=[0-9]+' "$ROOT/tv-config.cmd" | head -n1 | cut -d= -f2 || true)"
+fi
+case "$COLUMNS_VAL" in [4-8]) ;; *) COLUMNS_VAL=5;; esac
+
 [ -f "$APK" ] || { echo "The app isn't built yet - run: bash build.sh" >&2; exit 1; }
 
 step "Connecting to $TARGET  (look at the TV and choose 'Allow' if it asks about USB debugging)"
@@ -70,6 +77,9 @@ if [ -f "$ROOT/images/wallpaper.jpg" ]; then
   "$ADB" -s "$TARGET" push "$ROOT/images/wallpaper.jpg" "$FILES/wallpaper.jpg" >/dev/null
   [ -d "$ROOT/images/screensaver" ] && "$ADB" -s "$TARGET" push "$ROOT/images/screensaver" "$FILES/" >/dev/null || true
 fi
+
+step "Setting the grid to $COLUMNS_VAL columns"
+"$ADB" -s "$TARGET" shell "mkdir -p $FILES; echo $COLUMNS_VAL > $FILES/columns"
 
 if "$ADB" -s "$TARGET" shell "pm list packages com.amazon.tv.launcher" | grep -q amazon; then
   step "Fire TV detected - starting the Home takeover (re-run bash start-home-guard.sh after a full power-off)"
