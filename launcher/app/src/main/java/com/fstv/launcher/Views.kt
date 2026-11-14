@@ -13,16 +13,21 @@ import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.SurfaceTexture
 import android.graphics.Typeface
+import android.media.MediaPlayer
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -325,6 +330,91 @@ class TileCell(context: Context, val entry: AppEntry, private val ui: Ui, shadow
         const val WIGGLE = 1.4f
         const val IDLE_FADE = 0.22f
         const val SHINE_DURATION = 0.55f    // seconds; the diagonal highlight's traversal time
+    }
+}
+
+/**
+ * A tvOS-style aerial wallpaper: a looping, muted MP4 that lives behind the whole UI. Fills
+ * the screen via FIT_XY (orientation is landscape and videos are expected to be 16:9), fades
+ * in once ready, and releases its MediaPlayer on stop so no resources are held while an app
+ * is in the foreground.
+ */
+@SuppressLint("ViewConstructor")
+class AerialView(context: Context) : TextureView(context) {
+    private var player: MediaPlayer? = null
+    private var pendingPath: String? = null
+    private var surface: Surface? = null
+    private val listener = object : SurfaceTextureListener {
+        override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+            surface = Surface(st)
+            pendingPath?.let { start(it) }
+        }
+        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {}
+        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+            releasePlayer()
+            surface?.release()
+            surface = null
+            return true
+        }
+        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {}
+    }
+
+    init {
+        alpha = 0f
+        isOpaque = false
+        surfaceTextureListener = listener
+    }
+
+    /** Play [file] on loop. Safe to call before the texture is ready; it queues until it is. */
+    fun play(file: File) {
+        pendingPath = file.absolutePath
+        if (surface != null) start(file.absolutePath)
+    }
+
+    fun pause() {
+        try { player?.pause() } catch (_: Exception) {}
+    }
+
+    fun resume() {
+        try { player?.start() } catch (_: Exception) {}
+    }
+
+    /** Called from the activity's onStop; the texture listener handles its own tear-down too. */
+    fun release() {
+        pendingPath = null
+        releasePlayer()
+    }
+
+    private fun start(path: String) {
+        releasePlayer()
+        val surface = surface ?: return
+        player = try {
+            MediaPlayer().apply {
+                setSurface(surface)
+                setDataSource(path)
+                isLooping = true
+                setVolume(0f, 0f)
+                setOnPreparedListener {
+                    try { it.start() } catch (_: Exception) {}
+                    animate().alpha(1f).setDuration(600L).start()
+                }
+                setOnErrorListener { _, _, _ -> true }
+                prepareAsync()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun releasePlayer() {
+        try {
+            player?.stop()
+        } catch (_: Exception) {}
+        try {
+            player?.release()
+        } catch (_: Exception) {}
+        player = null
+        alpha = 0f
     }
 }
 

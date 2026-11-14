@@ -43,6 +43,8 @@ class HomeActivity : Activity() {
     private lateinit var repo: AppRepository
     private lateinit var shadow: Bitmap
     private lateinit var root: FrameLayout
+    private lateinit var aerial: AerialView
+    private var aerialActive = false
     private lateinit var backdrop: Backdrop
     private lateinit var hero: HeroView
     private lateinit var grid: FrameLayout
@@ -130,6 +132,7 @@ class HomeActivity : Activity() {
             clipChildren = false
             setBackgroundColor(Color.BLACK)
         }
+        aerial = AerialView(this)
         backdrop = Backdrop(this, ui)
         hero = HeroView(this, ui)
         shelf = ShelfBar(this, ui)
@@ -144,6 +147,9 @@ class HomeActivity : Activity() {
             alpha = 0f
         }
 
+        // Aerial video sits behind the backdrop; the backdrop fades to transparent when a video
+        // wallpaper is active, and takes over for idle photos.
+        root.addView(aerial, fullScreen())
         root.addView(backdrop, fullScreen())
         // tvOS-style: the full-screen blurred backdrop is "the hero". Keep the hero view in the
         // tree so its callers still resolve (showArt, hasArt, expand), but make it invisible and
@@ -242,7 +248,14 @@ class HomeActivity : Activity() {
             gravity = Gravity.CENTER
         })
         setContentView(root)
-        if (savedInstanceState == null) playStartup()
+        // Process-wide guard: the splash only plays on the first HomeActivity in this process. If
+        // the guard service or the home-guard shell races an am-start during cold boot and
+        // Android ends up re-creating the activity, savedInstanceState can still be null
+        // (stateNotNeeded="true"), so this flag is what actually prevents a double-play.
+        if (savedInstanceState == null && !startupShown) {
+            startupShown = true
+            playStartup()
+        }
         GuardService.start(this)
         // Queued first, so a wallpaper is ready before the grid decides what to show behind it.
         loadWallpaper()
@@ -341,6 +354,10 @@ class HomeActivity : Activity() {
         releaseHeroMemory()
         wallpaper = null
         backdrop.clear()
+        // Free the video decoder while an app is in the foreground; loadWallpaper() on the next
+        // onStart re-starts it.
+        aerial.release()
+        aerialActive = false
         super.onStop()
     }
 
@@ -462,7 +479,7 @@ class HomeActivity : Activity() {
         val cell = cells.getOrNull(focusIndex) ?: return
         focusKey = cell.entry.key
         scroll.target = ui.scrollForRow(focusIndex / ui.columns)
-        if (wallpaper == null && !idleMode) backdrop.show(cell.entry.backdrop)
+        if (wallpaper == null && !idleMode && !aerialActive) backdrop.show(cell.entry.backdrop)
         val direction = if (dx != 0) dx else if (dy != 0) dy else 1
         hero.showTitle(cell.entry.label, direction)
         requestHero(cell.entry, direction)
@@ -708,9 +725,19 @@ class HomeActivity : Activity() {
     }
 
     private fun loadWallpaper() {
-        val file = File(getExternalFilesDir(null) ?: return, WALLPAPER_FILE)
+        val dir = getExternalFilesDir(null) ?: return
+        val mp4 = File(dir, AERIAL_FILE)
+        if (mp4.isFile) {
+            aerialActive = true
+            aerial.play(mp4)
+            // Keep the still JPG decoded too, so it's a graceful fallback if the video fails.
+        } else {
+            aerialActive = false
+            aerial.release()
+        }
+        val jpg = File(dir, WALLPAPER_FILE)
         worker.execute {
-            val bitmap = decode(file)
+            val bitmap = decode(jpg)
             handler.post {
                 wallpaper = bitmap
                 applyHomeBackdrop()
@@ -726,6 +753,13 @@ class HomeActivity : Activity() {
 
     private fun applyHomeBackdrop() {
         if (idleMode) return
+        if (aerialActive) {
+            // The video is the wallpaper; hide the backdrop so the picture or blur doesn't show.
+            backdrop.animate().alpha(0f).setDuration(300L).start()
+            ticker.wake()
+            return
+        }
+        backdrop.animate().alpha(1f).setDuration(300L).start()
         val picture = wallpaper
         if (picture != null) {
             backdrop.motion = BackdropMotion.STILL
@@ -744,6 +778,11 @@ class HomeActivity : Activity() {
         handler.removeCallbacks(idleCheck)
         idleAmount.target = 1f
         cells.forEach { it.setDimmed(true) }
+        // Idle photos take over the backdrop; stop the video to save power while nobody's watching.
+        if (aerialActive) {
+            aerial.pause()
+            backdrop.animate().alpha(1f).setDuration(300L).start()
+        }
         slides = File(getExternalFilesDir(null), SLIDES_DIR)
             .listFiles { file -> file.name.endsWith(".jpg", ignoreCase = true) }
             ?.toList()?.shuffled().orEmpty()
@@ -772,6 +811,7 @@ class HomeActivity : Activity() {
         idleAmount.target = 0f
         deepAmount.target = 0f
         cells.forEach { it.setDimmed(false) }
+        if (aerialActive) aerial.resume()
         applyHomeBackdrop()
         poke()
     }
@@ -959,7 +999,12 @@ class HomeActivity : Activity() {
         private const val SPLASH_PAUSE_MS = 400L
         private const val SPLASH_SPINNER_MS = 1500L
         private const val WALLPAPER_FILE = "wallpaper.jpg"
+        private const val AERIAL_FILE = "wallpaper.mp4"
         private const val SLIDES_DIR = "screensaver"
+
+        /** Plays the splash sequence once per process; survives activity re-creation. */
+        @Volatile
+        private var startupShown = false
         // TEST TIMERS: 10s to go inactive, 30s to near-off. Real values are 120_000 and 3_600_000.
         private const val IDLE_MS = 120_000L
         private const val DEEP_IDLE_MS = 3_600_000L

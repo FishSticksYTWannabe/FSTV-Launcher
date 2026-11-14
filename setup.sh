@@ -71,10 +71,17 @@ step "Turning on HDMI-CEC (one remote, auto-wake, and the 5-min auto-return from
 # Settings > Sound > Audio Output > Audio Format (Priority) > Linear PCM.
 
 FILES="/sdcard/Android/data/com.fstv.launcher/files"
-if [ -f "$ROOT/images/wallpaper.jpg" ]; then
+if [ -f "$ROOT/images/wallpaper.jpg" ] || [ -f "$ROOT/images/wallpaper.mp4" ]; then
   step "Copying your wallpaper and screensaver photos"
   "$ADB" -s "$TARGET" shell "mkdir -p $FILES/screensaver"
-  "$ADB" -s "$TARGET" push "$ROOT/images/wallpaper.jpg" "$FILES/wallpaper.jpg" >/dev/null
+  [ -f "$ROOT/images/wallpaper.jpg" ] && "$ADB" -s "$TARGET" push "$ROOT/images/wallpaper.jpg" "$FILES/wallpaper.jpg" >/dev/null || true
+  if [ -f "$ROOT/images/wallpaper.mp4" ]; then
+    step "Copying your aerial video wallpaper (wallpaper.mp4)"
+    "$ADB" -s "$TARGET" push "$ROOT/images/wallpaper.mp4" "$FILES/wallpaper.mp4" >/dev/null
+  else
+    # Clear any stale MP4 so a removed video goes back to the still JPG on next launch.
+    "$ADB" -s "$TARGET" shell "rm -f $FILES/wallpaper.mp4" >/dev/null 2>&1 || true
+  fi
   [ -d "$ROOT/images/screensaver" ] && "$ADB" -s "$TARGET" push "$ROOT/images/screensaver" "$FILES/" >/dev/null || true
 fi
 
