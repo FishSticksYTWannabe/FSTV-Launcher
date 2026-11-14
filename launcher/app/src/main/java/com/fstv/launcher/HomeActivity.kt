@@ -145,7 +145,12 @@ class HomeActivity : Activity() {
         }
 
         root.addView(backdrop, fullScreen())
+        // tvOS-style: the full-screen blurred backdrop is "the hero". Keep the hero view in the
+        // tree so its callers still resolve (showArt, hasArt, expand), but make it invisible and
+        // zero-alpha so the grid has the stage to itself.
         root.addView(hero, fullScreen())
+        hero.visibility = View.GONE
+        hero.alpha = 0f
         root.addView(shelf, fullScreen())
         root.addView(grid, fullScreen())
         root.addView(greeting, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
@@ -528,7 +533,7 @@ class HomeActivity : Activity() {
         // launch until the black is fully opaque so the system splash takes over from solid
         // black, not from a half-transparent veil over the home screen.
         val flatTile = entry.iconRes != 0
-        val useHero = hero.hasArt() && hero.alpha > 0.5f && !flatTile
+        val useHero = hero.visibility == View.VISIBLE && hero.hasArt() && hero.alpha > 0.5f && !flatTile
         val lead = when {
             flatTile -> FADE_LAUNCH_MS
             useHero -> LAUNCH_LEAD_MS

@@ -16,7 +16,9 @@ class Ui(val screenW: Int, val screenH: Int) {
     val gapX = px(40f)
     val rowPitch = px(282f)
     val left = (screenW - (tileW * columns + gapX * (columns - 1))) / 2f
-    val firstRowY = px(640f)
+    // Where the grid sits, measured from the top. With the big hero image removed, the grid is
+    // now the only content - tvOS leaves generous empty space above it for the backdrop to breathe.
+    val firstRowY = px(420f)
     val focusedRowY = px(300f)
     val pad = px(72f)
     val radius = px(20f)
