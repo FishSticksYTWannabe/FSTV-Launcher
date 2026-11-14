@@ -46,12 +46,29 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
     private val artRect: RectF
     private val shadowRect = RectF()
 
+    // Diagonal specular highlight that traverses the tile when focus arrives (tvOS signature).
+    // The gradient is authored once; we translate + rotate it on draw so there is nothing to
+    // allocate per frame.
+    private val shineBand = ui.tileW * 0.22f
+    private val shineShader = LinearGradient(
+        -shineBand, 0f, shineBand, 0f,
+        intArrayOf(0x00FFFFFF, 0x66FFFFFF, 0xAAFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF),
+        floatArrayOf(0f, 0.35f, 0.5f, 0.65f, 1f),
+        Shader.TileMode.CLAMP,
+    )
+    private val shineMatrix = Matrix()
+    private val shinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = shineShader
+        isDither = true
+    }
+
     private var shadowAlpha = 0
     private var glareAlpha = 0
     private var lightX = 0f
     private var lightY = 0f
     private var shadowDrop = 0f
     private var gray = 0f
+    private var shineProgress = -1f    // -1 = idle, 0..1 = sweeping, >1 = done
 
     init {
         val inset = Art.INSET * ui.tileW / ui.artW
@@ -73,6 +90,16 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
         lightX = nextX
         lightY = nextY
         shadowDrop = nextDrop
+        invalidate()
+    }
+
+    /**
+     * Drives the shine sweep. Progress 0 is the band off-screen left, 1 is off-screen right.
+     * Pass -1 to clear (no shine drawn). The owning TileCell advances this each frame.
+     */
+    fun setShine(progress: Float) {
+        if (progress == shineProgress) return
+        shineProgress = progress
         invalidate()
     }
 
@@ -108,6 +135,19 @@ class TileCard(context: Context, private val ui: Ui, private val art: Bitmap, pr
             glareShader.setLocalMatrix(glareMatrix)
             glarePaint.alpha = glareAlpha
             canvas.drawRoundRect(cardRect, ui.radius, ui.radius, glarePaint)
+        }
+        if (shineProgress in 0f..1f) {
+            // Sweep a bright diagonal band from upper-left across to lower-right. Fade both ends
+            // of the pass so it doesn't pop in or out at the edges.
+            val travel = ui.tileW + shineBand * 2f
+            val tx = cardRect.left - shineBand + travel * shineProgress
+            val ty = cardRect.top + ui.tileH * shineProgress   // small vertical slide = diagonal
+            val envelope = 1f - abs(shineProgress - 0.5f) * 2f
+            shineMatrix.setRotate(22f)
+            shineMatrix.postTranslate(tx, ty)
+            shineShader.setLocalMatrix(shineMatrix)
+            shinePaint.alpha = (255f * envelope).toInt().coerceIn(0, 255)
+            canvas.drawRoundRect(cardRect, ui.radius, ui.radius, shinePaint)
         }
     }
 
@@ -149,6 +189,7 @@ class TileCell(context: Context, val entry: AppEntry, private val ui: Ui, shadow
     private val dim = Spring(24f, 10f)
     private var appearDelay = 0f
     private var focusedTile = false
+    private var shineElapsed = -1f    // seconds since shine began; -1 = not shining
 
     /** How focused this tile is, 0..1, for the shelf under it. */
     val focusLevel: Float get() = focus.value.coerceIn(0f, 1f)
@@ -183,11 +224,14 @@ class TileCell(context: Context, val entry: AppEntry, private val ui: Ui, shadow
     }
 
     fun setFocusedTile(focused: Boolean, dx: Int, dy: Int) {
+        val wasFocused = focusedTile
         focusedTile = focused
         focus.target = if (focused) 1f else 0f
         if (focused) {
             tiltX.velocity += dx * LEAN_IMPULSE
             tiltY.velocity += dy * LEAN_IMPULSE
+            // Trigger the specular sweep on arrival, not on every tick while focused.
+            if (!wasFocused) shineElapsed = 0f
         } else {
             tiltX.target = 0f
             tiltY.target = 0f
@@ -249,6 +293,18 @@ class TileCell(context: Context, val entry: AppEntry, private val ui: Ui, shadow
         card.translationY = nudgeY.value
         card.setLook(f, tiltX.value, tiltY.value)
         card.setGray(idle)
+        // Advance the shine sweep if one is running. Stays off once past 1.
+        if (shineElapsed >= 0f) {
+            shineElapsed += dt
+            val progress = shineElapsed / SHINE_DURATION
+            if (progress >= 1f) {
+                shineElapsed = -1f
+                card.setShine(-1f)
+            } else {
+                card.setShine(progress)
+                moving = true
+            }
+        }
         label.alpha = faded
         label.translationY = (1f - faded) * ui.px(-12f)
         translationX = posX.value
@@ -268,6 +324,7 @@ class TileCell(context: Context, val entry: AppEntry, private val ui: Ui, shadow
         const val MAX_TILT = 10f
         const val WIGGLE = 1.4f
         const val IDLE_FADE = 0.22f
+        const val SHINE_DURATION = 0.55f    // seconds; the diagonal highlight's traversal time
     }
 }
 

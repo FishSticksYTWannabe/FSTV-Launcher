@@ -222,7 +222,7 @@ class HomeActivity : Activity() {
             setBackgroundColor(Color.BLACK)
             setTextSize(TypedValue.COMPLEX_UNIT_PX, ui.px(150f))
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            letterSpacing = 0.22f
+            letterSpacing = 0.08f
             gravity = Gravity.CENTER
             visibility = View.GONE
         }
