@@ -47,6 +47,7 @@ class HomeActivity : Activity() {
     private var aerialActive = false
     private lateinit var backdrop: Backdrop
     private lateinit var vignette: Vignette
+    private lateinit var focusGlow: FocusGlow
     private lateinit var hero: HeroView
     private lateinit var grid: FrameLayout
     private lateinit var clock: TextView
@@ -136,6 +137,7 @@ class HomeActivity : Activity() {
         aerial = AerialView(this)
         backdrop = Backdrop(this, ui)
         vignette = Vignette(this, ui)
+        focusGlow = FocusGlow(this, ui)
         hero = HeroView(this, ui)
         shelf = ShelfBar(this, ui)
         grid = FrameLayout(this).apply { clipChildren = false }
@@ -155,6 +157,8 @@ class HomeActivity : Activity() {
         root.addView(backdrop, fullScreen())
         // Soft vignette above the picture, below the UI: draws the eye to center, tvOS-style.
         root.addView(vignette, fullScreen())
+        // Halo follows the focused tile; sits above the vignette but below the grid itself.
+        root.addView(focusGlow, fullScreen())
         // tvOS-style: the full-screen blurred backdrop is "the hero". Keep the hero view in the
         // tree so its callers still resolve (showArt, hasArt, expand), but make it invisible and
         // zero-alpha so the grid has the stage to itself.
@@ -945,9 +949,12 @@ class HomeActivity : Activity() {
             val cx = fc.translationX + ui.cellW / 2f
             val cyc = fc.translationY + grid.translationY + ui.cardH / 2f
             val baseline = cyc + ui.tileH * 0.5f * (1f + ui.focusGrow * fc.focusLevel) + ui.px(12f)
-            shelf.update(cx, baseline, ui.tileW, fc.focusLevel * (1f - idleAmount.value.coerceIn(0f, 1f)))
+            val focusVis = fc.focusLevel * (1f - idleAmount.value.coerceIn(0f, 1f))
+            shelf.update(cx, baseline, ui.tileW, focusVis)
+            focusGlow.update(cx, cyc, ui.tileW, focusVis)
         } else {
             shelf.update(0f, 0f, ui.tileW, 0f)
+            focusGlow.update(0f, 0f, ui.tileW, 0f)
         }
 
         moving = backdrop.tick(dt, time, ambient) || moving

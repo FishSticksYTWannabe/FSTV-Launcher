@@ -452,6 +452,43 @@ class Vignette(context: Context, private val ui: Ui) : View(context) {
     override fun hasOverlappingRendering(): Boolean = false
 }
 
+/**
+ * A soft radial halo that follows the focused tile — tvOS's signature "this is selected" bloom.
+ * Lives above the grid's backdrop and below the tile itself, so the glow pools around the card
+ * without washing out the art on top. Full-screen so the gradient can extend well past the tile
+ * bounds without any clipping.
+ */
+@SuppressLint("ViewConstructor")
+class FocusGlow(context: Context, private val ui: Ui) : View(context) {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }
+    private var cx = 0f
+    private var cy = 0f
+    private var radius = 0f
+    private var strength = 0f
+
+    fun update(centerX: Float, centerY: Float, tileWidth: Float, focus: Float) {
+        cx = centerX
+        cy = centerY
+        // A bit bigger than the tile so the halo visibly spills past the edges.
+        radius = tileWidth * 0.95f
+        strength = focus.coerceIn(0f, 1f)
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (strength <= 0.01f || radius <= 0f) return
+        val peak = (0x4C * strength).toInt().coerceIn(0, 255) shl 24
+        paint.shader = RadialGradient(
+            cx, cy, radius,
+            intArrayOf(peak or 0x00FFFFFF, 0x00FFFFFF),
+            floatArrayOf(0f, 1f), Shader.TileMode.CLAMP,
+        )
+        canvas.drawCircle(cx, cy, radius, paint)
+    }
+
+    override fun hasOverlappingRendering(): Boolean = false
+}
+
 /** How the backdrop moves: a drifting blur, a still wallpaper, or a slow pan across photos. */
 enum class BackdropMotion { BLURRED, STILL, SLIDESHOW }
 
