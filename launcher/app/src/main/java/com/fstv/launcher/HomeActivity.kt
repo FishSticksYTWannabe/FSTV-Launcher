@@ -174,14 +174,16 @@ class HomeActivity : Activity() {
         hero.alpha = 0f
         root.addView(shelf, fullScreen())
         root.addView(grid, fullScreen())
-        // Continue Watching row sits above the grid so its cards aren't occluded during scroll.
-        root.addView(watchNext, fullScreen())
+        // Continue Watching shelf was dropped as redundant with the grid; the view/repo are kept
+        // in the tree-less state so a future reinstatement doesn't require code archeology.
         root.addView(greeting, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
             topMargin = ui.px(44f).toInt()
             leftMargin = ui.left.toInt()
         })
         root.addView(cornerDate, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
-            topMargin = ui.px(118f).toInt()
+            // Sits well below the big greeting line so the descender of "Good Evening"
+            // doesn't collide with the date on taller font metrics.
+            topMargin = ui.px(150f).toInt()
             leftMargin = ui.left.toInt()
         })
         root.addView(clock, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply {
@@ -342,12 +344,7 @@ class HomeActivity : Activity() {
         resetLaunchZoom()
         // Back on the home screen: nothing else needs to stay warm, so reclaim their RAM.
         trimBackground(null)
-        if (cells.isNotEmpty()) {
-            loadWallpaper()
-            // Shelf reflects most-recently-used apps, so refresh after any excursion into a game
-            // or video app lands the user back on home.
-            loadWatchNext(cells.map { it.entry })
-        }
+        if (cells.isNotEmpty()) loadWallpaper()
         cells.getOrNull(focusIndex)?.let { requestHero(it.entry, 1) }
     }
 
@@ -834,7 +831,6 @@ class HomeActivity : Activity() {
         presentFocused(0, 0)
         if (idleMode) cells.forEach { it.setDimmed(true) }
         poke()
-        loadWatchNext(entries)
     }
 
     private fun loadWatchNext(entries: List<AppEntry>) {

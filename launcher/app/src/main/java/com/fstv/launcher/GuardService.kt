@@ -67,10 +67,14 @@ class GuardService : Service() {
 
             if (now >= suppressUntil && (amazonUp || proactive)) {
                 lastProactive = now
-                startActivity(
-                    Intent(this@GuardService, HomeActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
-                )
+                val intent = Intent(this@GuardService, HomeActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                // A bounce from Amazon's launcher means the user pressed Home. Tell FSTV to
+                // reset focus to tile 0, tvOS-style, so pressing Home does something visible
+                // even when the Fire OS flash-over was too brief to see. Proactive boot-time
+                // launches don't carry the extra — FSTV already starts on tile 0 there.
+                if (amazonUp) intent.putExtra(HomeActivity.EXTRA_GO_TO_START, true)
+                startActivity(intent)
             }
             handler.postDelayed(this, POLL_MS)
         }

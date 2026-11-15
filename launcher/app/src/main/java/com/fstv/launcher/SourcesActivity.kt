@@ -161,7 +161,7 @@ class SourcesActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (tiles.isEmpty()) {
             if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                finish()
+                returnHome()
                 return true
             }
             return super.dispatchKeyEvent(event)
@@ -181,7 +181,11 @@ class SourcesActivity : Activity() {
             KeyEvent.KEYCODE_BACK,
             KeyEvent.KEYCODE_ESCAPE,
             KeyEvent.KEYCODE_DEL -> {
-                if (event.action == KeyEvent.ACTION_UP) finish()
+                if (event.action == KeyEvent.ACTION_UP) returnHome()
+                return true
+            }
+            KeyEvent.KEYCODE_HOME -> {
+                if (event.action == KeyEvent.ACTION_UP) returnHome()
                 return true
             }
         }
@@ -243,6 +247,26 @@ class SourcesActivity : Activity() {
                 // Try the next strategy.
             }
         }
+    }
+
+    /**
+     * Explicitly return to FSTV's home instead of relying on the task stack. Fire OS makes
+     * Amazon's launcher the system home, so a plain `finish()` lets the system return the user
+     * to Amazon rather than to us for a beat before the home-guard bounces back. Starting
+     * HomeActivity directly skips that detour.
+     */
+    private fun returnHome() {
+        val intent = Intent(this, HomeActivity::class.java).addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP,
+        )
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            // Fall back to a plain finish; the home-guard will bounce from Amazon.
+        }
+        finish()
     }
 
     data class Source(val label: String, val type: Int, val inputId: String, val isPassthrough: Boolean)
