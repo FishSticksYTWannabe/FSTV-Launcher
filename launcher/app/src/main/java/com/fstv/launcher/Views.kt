@@ -827,6 +827,132 @@ class ShelfBar(context: Context, private val ui: Ui) : View(context) {
     override fun hasOverlappingRendering(): Boolean = false
 }
 
+/**
+ * The top-of-home "Continue Watching" row. Shows up to three wider cards, each one drawn from a
+ * recent-app AppEntry so it inherits the same artwork, label, and launch intent the grid tile
+ * uses. Rendered only when there's data; hidden otherwise so the layout above the grid breathes.
+ */
+@SuppressLint("ViewConstructor")
+class WatchNextShelf(context: Context, private val ui: Ui) : FrameLayout(context) {
+    private val cards = ArrayList<WatchNextCard>()
+    private val heading = TextView(context).apply {
+        text = "Continue Watching"
+        setTextColor(0xE6FFFFFF.toInt())
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, ui.px(26f))
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        letterSpacing = 0.06f
+        setShadowLayer(ui.px(12f), 0f, ui.px(2f), 0x80000000.toInt())
+        alpha = 0f
+    }
+
+    val size: Int get() = cards.size
+
+    val cardWidth = ui.px(380f)
+    val cardHeight = ui.px(214f)
+    val cardGap = ui.px(28f)
+    val topY = ui.px(170f)
+
+    init {
+        clipChildren = false
+        val headingParams = LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        headingParams.leftMargin = ui.left.toInt()
+        headingParams.topMargin = (topY - ui.px(44f)).toInt()
+        addView(heading, headingParams)
+    }
+
+    /** Lay out [entries] as the row's cards. Pass an empty list to clear the shelf. */
+    fun bind(entries: List<AppEntry>) {
+        for (card in cards) removeView(card)
+        cards.clear()
+        heading.alpha = if (entries.isEmpty()) 0f else 1f
+        if (entries.isEmpty()) return
+        val total = cardWidth * entries.size + cardGap * (entries.size - 1)
+        val startX = (ui.screenW - total) / 2f
+        entries.forEachIndexed { i, entry ->
+            val card = WatchNextCard(context, ui, entry)
+            val params = LayoutParams(cardWidth.toInt(), cardHeight.toInt())
+            params.leftMargin = (startX + i * (cardWidth + cardGap)).toInt()
+            params.topMargin = topY.toInt()
+            addView(card, params)
+            cards.add(card)
+        }
+    }
+
+    fun entries(): List<AppEntry> = cards.map { it.entry }
+
+    fun setFocusIndex(index: Int) {
+        cards.forEachIndexed { i, card -> card.setFocused(i == index) }
+    }
+
+    /** Called from the activity's ticker. Returns true while any card is still animating. */
+    fun tick(dt: Float): Boolean {
+        var moving = false
+        for (card in cards) moving = card.tick(dt) || moving
+        return moving
+    }
+
+    fun setFaded(faded: Float) {
+        // Fades with idle: the shelf should behave like the grid, not the always-on clock.
+        val a = (1f - faded.coerceIn(0f, 1f))
+        for (card in cards) card.cardAlpha = a
+        heading.alpha = if (cards.isEmpty()) 0f else a
+    }
+}
+
+/**
+ * One tile in [WatchNextShelf]. Reuses the pre-rendered tile bitmap from its AppEntry (already
+ * rounded + shaded) so there's a single art pipeline to maintain. On focus it grows, brightens,
+ * and lifts above the grid so it reads as the currently-selected card.
+ */
+@SuppressLint("ViewConstructor")
+class WatchNextCard(context: Context, private val ui: Ui, val entry: AppEntry) : FrameLayout(context) {
+    private val image = ImageView(context).apply {
+        setImageBitmap(entry.tile)
+        scaleType = ImageView.ScaleType.CENTER_CROP
+    }
+    private val focus = Spring(260f, 20f)
+    private val label = TextView(context).apply {
+        text = entry.label
+        setTextColor(Color.WHITE)
+        setTextSize(TypedValue.COMPLEX_UNIT_PX, ui.px(24f))
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        gravity = Gravity.CENTER
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+        setShadowLayer(ui.px(10f), 0f, ui.px(2f), 0x99000000.toInt())
+        alpha = 0f
+    }
+
+    var cardAlpha = 1f
+
+    init {
+        clipChildren = false
+        addView(image, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val labelParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        labelParams.topMargin = ui.px(220f).toInt()
+        addView(label, labelParams)
+    }
+
+    fun setFocused(on: Boolean) {
+        focus.target = if (on) 1f else 0f
+    }
+
+    fun tick(dt: Float): Boolean {
+        val moving = focus.step(dt)
+        val f = focus.value.coerceIn(0f, 1f)
+        val size = 1f + f * 0.08f
+        scaleX = size
+        scaleY = size
+        image.alpha = (0.72f + 0.28f * f) * cardAlpha
+        label.alpha = f * cardAlpha
+        label.translationY = (1f - f) * ui.px(-8f)
+        translationZ = f * ui.px(24f)
+        return moving
+    }
+
+    override fun hasOverlappingRendering(): Boolean = false
+}
+
 /** A clean analog clock face for the always-on display: ticks, three hands, a teal second hand. */
 @SuppressLint("ViewConstructor")
 class AnalogClockView(context: Context, private val ui: Ui) : View(context) {

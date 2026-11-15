@@ -41,6 +41,7 @@ import java.util.concurrent.Executors
 class HomeActivity : Activity() {
     private lateinit var ui: Ui
     private lateinit var repo: AppRepository
+    private lateinit var watchNextRepo: WatchNextRepository
     private lateinit var shadow: Bitmap
     private lateinit var root: FrameLayout
     private lateinit var aerial: AerialView
@@ -49,6 +50,7 @@ class HomeActivity : Activity() {
     private lateinit var vignette: Vignette
     private lateinit var focusGlow: FocusGlow
     private lateinit var hero: HeroView
+    private lateinit var watchNext: WatchNextShelf
     private lateinit var grid: FrameLayout
     private lateinit var clock: TextView
     private lateinit var greeting: TextView
@@ -94,6 +96,9 @@ class HomeActivity : Activity() {
     private var idleMode = false
     private var deepIdle = false
     private var swallowUntilKeyUp = false
+    private var focusInShelf = false
+    private var shelfIndex = 0
+    private var lastGridColumn = 0
     private var wallpaper: Bitmap? = null
     private var slides: List<File> = emptyList()
     private var slideIndex = 0
@@ -128,6 +133,7 @@ class HomeActivity : Activity() {
         val size = Point().also { windowManager.defaultDisplay.getRealSize(it) }
         ui = Ui(size.x, size.y, readColumns())
         repo = AppRepository(this, ui)
+        watchNextRepo = WatchNextRepository(this)
         shadow = Art.shadow(ui)
 
         root = FrameLayout(this).apply {
@@ -140,6 +146,7 @@ class HomeActivity : Activity() {
         focusGlow = FocusGlow(this, ui)
         hero = HeroView(this, ui)
         shelf = ShelfBar(this, ui)
+        watchNext = WatchNextShelf(this, ui)
         grid = FrameLayout(this).apply { clipChildren = false }
         clock = makeText(ui.px(54f), Typeface.create("sans-serif-light", Typeface.NORMAL))
         greeting = makeText(ui.px(52f), Typeface.create("sans-serif-light", Typeface.NORMAL))
@@ -167,6 +174,8 @@ class HomeActivity : Activity() {
         hero.alpha = 0f
         root.addView(shelf, fullScreen())
         root.addView(grid, fullScreen())
+        // Continue Watching row sits above the grid so its cards aren't occluded during scroll.
+        root.addView(watchNext, fullScreen())
         root.addView(greeting, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
             topMargin = ui.px(44f).toInt()
             leftMargin = ui.left.toInt()
@@ -333,7 +342,12 @@ class HomeActivity : Activity() {
         resetLaunchZoom()
         // Back on the home screen: nothing else needs to stay warm, so reclaim their RAM.
         trimBackground(null)
-        if (cells.isNotEmpty()) loadWallpaper()
+        if (cells.isNotEmpty()) {
+            loadWallpaper()
+            // Shelf reflects most-recently-used apps, so refresh after any excursion into a game
+            // or video app lands the user back on home.
+            loadWatchNext(cells.map { it.entry })
+        }
         cells.getOrNull(focusIndex)?.let { requestHero(it.entry, 1) }
     }
 
@@ -397,6 +411,36 @@ class HomeActivity : Activity() {
             if (event.action == KeyEvent.ACTION_UP) swallowUntilKeyUp = false
             return true
         }
+        if (focusInShelf) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> return handleShelfMove(event, -1)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> return handleShelfMove(event, 1)
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (event.action == KeyEvent.ACTION_DOWN) poke()
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN,
+                KeyEvent.KEYCODE_PAGE_DOWN -> {
+                    if (event.action == KeyEvent.ACTION_DOWN) exitShelf()
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER,
+                KeyEvent.KEYCODE_SPACE,
+                KeyEvent.KEYCODE_BUTTON_A -> {
+                    if (event.action == KeyEvent.ACTION_UP) handleShelfSelect()
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK,
+                KeyEvent.KEYCODE_ESCAPE,
+                KeyEvent.KEYCODE_DEL,
+                KeyEvent.KEYCODE_FORWARD_DEL -> {
+                    if (event.action == KeyEvent.ACTION_UP) exitShelf()
+                    return true
+                }
+            }
+        }
         when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> return handleMove(event, -1, 0)
             KeyEvent.KEYCODE_DPAD_RIGHT -> return handleMove(event, 1, 0)
@@ -451,6 +495,12 @@ class HomeActivity : Activity() {
         poke()
 
         val target = neighbor(focusIndex, dx, dy)
+        // Up from row 0: step off the grid onto the Continue Watching shelf, when populated.
+        if (target == null && dy < 0 && !editing && focusIndex < ui.columns && watchNext.size > 0) {
+            enterShelf()
+            ticker.wake()
+            return true
+        }
         when {
             target == null -> cells[focusIndex].bump(dx, dy)
             editing -> moveTile(target)
@@ -458,6 +508,73 @@ class HomeActivity : Activity() {
         }
         ticker.wake()
         return true
+    }
+
+    private fun handleShelfMove(event: KeyEvent, dx: Int): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) return true
+        val now = SystemClock.uptimeMillis()
+        if (event.repeatCount > 0 && now - lastMove < REPEAT_MS) return true
+        lastMove = now
+        poke()
+        val target = (shelfIndex + dx).coerceIn(0, watchNext.size - 1)
+        if (target != shelfIndex) {
+            shelfIndex = target
+            watchNext.setFocusIndex(shelfIndex)
+        }
+        ticker.wake()
+        return true
+    }
+
+    private fun enterShelf() {
+        if (watchNext.size == 0) return
+        if (editing) setEditing(false)
+        lastGridColumn = focusIndex % ui.columns
+        cells.getOrNull(focusIndex)?.setFocusedTile(false, 0, -1)
+        focusInShelf = true
+        shelfIndex = lastGridColumn.coerceIn(0, watchNext.size - 1)
+        watchNext.setFocusIndex(shelfIndex)
+        // Hide the hero caption / art swap so the top of the screen is the shelf's alone.
+        hero.alpha = 0f
+        poke()
+    }
+
+    private fun exitShelf() {
+        if (!focusInShelf) return
+        focusInShelf = false
+        watchNext.setFocusIndex(-1)
+        val col = shelfIndex.coerceIn(0, ui.columns - 1).coerceAtMost(cells.size - 1)
+        if (col in cells.indices && col != focusIndex) {
+            focusIndex = col
+        }
+        cells.getOrNull(focusIndex)?.setFocusedTile(true, 0, 1)
+        presentFocused(0, 1)
+        poke()
+        ticker.wake()
+    }
+
+    private fun handleShelfSelect() {
+        val entry = watchNext.entries().getOrNull(shelfIndex) ?: return
+        openShelfItem(entry)
+    }
+
+    private fun openShelfItem(entry: AppEntry) {
+        val intent = entry.intent ?: return
+        if (intent.component?.packageName == AppRepository.STOCK_LAUNCHER) {
+            GuardService.suppressUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
+        }
+        trimBackground(intent.component?.packageName)
+        // Shelf cards don't have the grid tile's geometry for the zoom animation, so a clean
+        // fade-to-black lands the same way the designed tiles do.
+        launchVeil.visibility = View.VISIBLE
+        launchVeil.alpha = 0f
+        launchVeil.animate().alpha(1f).setDuration(FADE_LAUNCH_MS).start()
+        root.postDelayed({
+            try {
+                startActivity(intent, ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle())
+            } catch (_: Exception) {
+                resetLaunchZoom()
+            }
+        }, FADE_LAUNCH_MS)
     }
 
     private fun neighbor(index: Int, dx: Int, dy: Int): Int? {
@@ -685,6 +802,7 @@ class HomeActivity : Activity() {
     private fun goToStart() {
         if (cells.isEmpty()) return
         setEditing(false)
+        if (focusInShelf) exitShelf()
         if (focusIndex != 0) changeFocus(0, 0, -1)
         ticker.wake()
     }
@@ -716,6 +834,23 @@ class HomeActivity : Activity() {
         presentFocused(0, 0)
         if (idleMode) cells.forEach { it.setDimmed(true) }
         poke()
+        loadWatchNext(entries)
+    }
+
+    private fun loadWatchNext(entries: List<AppEntry>) {
+        worker.execute {
+            val items = watchNextRepo.load(entries)
+            handler.post {
+                watchNext.bind(items)
+                if (items.isEmpty() && focusInShelf) {
+                    exitShelf()
+                } else if (focusInShelf && shelfIndex >= items.size) {
+                    shelfIndex = items.size - 1
+                    watchNext.setFocusIndex(shelfIndex)
+                }
+                ticker.wake()
+            }
+        }
     }
 
     /**
@@ -909,9 +1044,15 @@ class HomeActivity : Activity() {
         val inactive = idleAmount.value.coerceIn(0f, 1f)
         grid.translationY = -scroll.value
         val away = (scroll.value / ui.scrollForRow(1)).coerceIn(0f, 1f)
-        hero.alpha = (1f - away) * (1f - inactive) * (1f - deep)
+        hero.alpha = if (focusInShelf) 0f else (1f - away) * (1f - inactive) * (1f - deep)
         hero.translationY = -away * ui.px(160f)
         grid.alpha = 1f - deep
+        // Shelf fades with the grid (as if it belonged to the grid), but also fades as the grid
+        // scrolls so it doesn't fight scrolled-up rows for the top of the screen.
+        val shelfFaded = inactive + (1f - inactive) * away
+        watchNext.setFaded(shelfFaded.coerceIn(0f, 1f))
+        watchNext.alpha = 1f - deep
+        moving = watchNext.tick(dt) || moving
         // Top widgets fade out as the grid scrolls up under them, and hand off to the big clock when idle.
         val topFade = (1f - inactive) * (1f - away)
         clock.alpha = topFade

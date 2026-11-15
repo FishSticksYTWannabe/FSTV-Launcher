@@ -26,6 +26,9 @@ FSTV is an Android app, so it runs on **Android-based TV systems only**:
 - **tvOS-style grid** — rounded app tiles that lift, tilt and catch the light on focus, with spring
   physics; a large preview of the focused app, a reflective shelf under the selection, and an open
   animation that zooms the tile to black before the app draws.
+- **Continue Watching row** — a short row of wider cards above the grid for your three
+  most-recently-used apps. Press Up from the first grid row to step onto it; Select launches
+  the card, Down returns to the grid.
 - **Always-on clock** — a corner clock with a greeting and date; after a couple of minutes idle the
   screen dims and a large digital clock fills the top; after an hour it becomes an Apple-style
   near-off screen with a big analog clock over a dimmed photo.
