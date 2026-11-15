@@ -100,14 +100,34 @@ class SourcesActivity : Activity() {
         } catch (_: Exception) {
             return emptyList()
         }
+        // CEC-detected sub-inputs (e.g. "PlayStation 5" under HDMI 1) look like additional entries
+        // with a parent id. Collect them keyed by parent so the parent tile can borrow the better
+        // label without duplicating the row.
+        val childLabelByParent = HashMap<String, String>()
+        for (info in raw) {
+            val parent = info.parentId ?: continue
+            val label = info.loadLabel(this)?.toString()?.trim().orEmpty()
+            if (label.isNotEmpty() && childLabelByParent[parent] == null) {
+                childLabelByParent[parent] = label
+            }
+        }
         return raw.asSequence()
-            .filter { isSwitchable(it.type) }
+            .filter { it.parentId == null }
+            .filter { isSourceInput(it) }
             .sortedWith(compareBy({ typeOrder(it.type) }, { it.loadLabel(this).toString() }))
             .map { info ->
+                val base = info.loadLabel(this)?.toString()?.trim().orEmpty()
+                val child = childLabelByParent[info.id]
+                val label = when {
+                    !child.isNullOrEmpty() && !child.equals(base, ignoreCase = true) -> "$base — $child"
+                    base.isNotEmpty() -> base
+                    else -> glyphFor(info.type)
+                }
                 Source(
-                    label = info.loadLabel(this).toString(),
+                    label = label,
                     type = info.type,
                     inputId = info.id,
+                    isPassthrough = info.isPassthroughInput,
                 )
             }
             .toList()
@@ -189,9 +209,17 @@ class SourcesActivity : Activity() {
     }
 
     private fun switchTo(src: Source) {
-        val attempts = ArrayList<Intent>(2)
+        val attempts = ArrayList<Intent>(3)
         try {
-            val uri = TvContract.buildChannelUriForPassthroughInput(src.inputId)
+            val uri = if (src.isPassthrough) {
+                // Physical video-in (HDMI, AV, etc.): the standard Android TV way to say
+                // "show me whatever is on this input."
+                TvContract.buildChannelUriForPassthroughInput(src.inputId)
+            } else {
+                // Tuner (ATSC, DTV, etc.): the system TV app handles ACTION_VIEW on its channel
+                // list and shows the last-tuned channel or a picker.
+                TvContract.buildChannelsUriForInput(src.inputId)
+            }
             attempts += Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } catch (_: Exception) {
             // Build URI failed — skip to the fallback.
@@ -217,7 +245,7 @@ class SourcesActivity : Activity() {
         }
     }
 
-    data class Source(val label: String, val type: Int, val inputId: String)
+    data class Source(val label: String, val type: Int, val inputId: String, val isPassthrough: Boolean)
 
     companion object {
         private const val MAX_COLS = 3
@@ -229,7 +257,10 @@ class SourcesActivity : Activity() {
             "com.android.tv",
         )
 
-        /** True for TvInputInfo types that correspond to a physical source we can switch to. */
+        /**
+         * True for TvInputInfo types that correspond to a physical source we can switch to.
+         * Used from [AppRepository] to decide whether to show the Sources tile at all.
+         */
         fun isSwitchable(type: Int): Boolean = when (type) {
             TvInputInfo.TYPE_HDMI,
             TvInputInfo.TYPE_COMPOSITE,
@@ -238,17 +269,44 @@ class SourcesActivity : Activity() {
             TvInputInfo.TYPE_VGA,
             TvInputInfo.TYPE_SCART,
             TvInputInfo.TYPE_DVI,
-            TvInputInfo.TYPE_DISPLAY_PORT -> true
+            TvInputInfo.TYPE_DISPLAY_PORT,
+            // The over-the-air / cable tuner is also a real physical source on TVs with an
+            // antenna port; the picker launches it via a channels URI rather than passthrough.
+            TvInputInfo.TYPE_TUNER -> true
             else -> false
         }
 
-        /** HDMI first, then the analog inputs; keeps the common cases at the top of the grid. */
+        /**
+         * Returns true for the full set of sources the picker should list. Passthrough video-ins
+         * (HDMI, AV, component, etc.) always qualify. Tuner and "other" inputs qualify only when
+         * they come from a known TV hardware service — this keeps software TV-input services
+         * (Amazon Firebat, Prime Video's TIS, Hulu's EPG service, etc.) off the picker, since
+         * those are app plumbing, not something the user would switch to from here.
+         */
+        private val HARDWARE_TV_INPUT_PACKAGES = setOf(
+            "com.droidlogic.tvinput",        // Amlogic (this Fire TV Edition)
+            "com.mediatek.wwtv.tvcenter",    // MediaTek TVs
+            "com.mediatek.tvinput",
+            "com.realtek.tvinput",
+            "com.novatek.tvinput",
+            "com.android.tv",                // AOSP TV app, where present
+        )
+
+        fun isSourceInput(info: TvInputInfo): Boolean {
+            if (info.isPassthroughInput) return true
+            if (!isSwitchable(info.type)) return false
+            val pkg = info.serviceInfo?.packageName ?: return false
+            return pkg in HARDWARE_TV_INPUT_PACKAGES
+        }
+
+        /** HDMI first, then the analog inputs, then the broadcast tuner. */
         private fun typeOrder(type: Int): Int = when (type) {
             TvInputInfo.TYPE_HDMI -> 0
             TvInputInfo.TYPE_DISPLAY_PORT, TvInputInfo.TYPE_DVI -> 1
             TvInputInfo.TYPE_COMPONENT, TvInputInfo.TYPE_VGA -> 2
             TvInputInfo.TYPE_COMPOSITE, TvInputInfo.TYPE_SVIDEO, TvInputInfo.TYPE_SCART -> 3
-            else -> 4
+            TvInputInfo.TYPE_TUNER -> 4
+            else -> 5
         }
 
         /** A tvOS-ish palette: HDMI is cool blue; the analog inputs get warm/green accents. */
@@ -261,6 +319,7 @@ class SourcesActivity : Activity() {
             TvInputInfo.TYPE_COMPOSITE,
             TvInputInfo.TYPE_SVIDEO,
             TvInputInfo.TYPE_SCART -> intArrayOf(0xFFB06433.toInt(), 0xFF4E2812.toInt())
+            TvInputInfo.TYPE_TUNER -> intArrayOf(0xFF7A4CA1.toInt(), 0xFF32184A.toInt())
             else -> intArrayOf(0xFF6A6A72.toInt(), 0xFF2A2A2E.toInt())
         }
 
@@ -274,6 +333,7 @@ class SourcesActivity : Activity() {
             TvInputInfo.TYPE_COMPOSITE -> "AV"
             TvInputInfo.TYPE_SVIDEO -> "S-Video"
             TvInputInfo.TYPE_SCART -> "SCART"
+            TvInputInfo.TYPE_TUNER -> "ANT"
             else -> "IN"
         }
     }
