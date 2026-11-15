@@ -52,6 +52,13 @@ Step "Installing FSTV Launcher"
 # Let the in-app home guard see the foreground app, so FSTV stays home with no PC needed.
 & $Adb -s $Target shell "appops set com.fstv.launcher android:get_usage_stats allow" 2>$null | Out-Null
 
+# Enable FSTV's accessibility service, which catches Back on the launcher before Amazon's
+# quick-menu overlay sees it. Without this, Fire OS routes Back to its own shortcut strip
+# instead of FSTV's own Back handler. The service only filters key events and tracks the
+# foreground package; see res/xml/accessibility_config.xml for the exact capabilities.
+& $Adb -s $Target shell "settings put secure enabled_accessibility_services com.fstv.launcher/com.fstv.launcher.HomeAccessibilityService" 2>$null | Out-Null
+& $Adb -s $Target shell "settings put secure accessibility_enabled 1" 2>$null | Out-Null
+
 Step "Turning on the always-on look (never fully off, just dimmed) and faster animations"
 & $Adb -s $Target shell "settings put secure sleep_timeout -1"
 & $Adb -s $Target shell "settings put system screen_off_timeout 2147483647"

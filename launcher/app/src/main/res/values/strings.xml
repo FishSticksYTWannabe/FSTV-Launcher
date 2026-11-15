@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FSTV Launcher</string>
+    <string name="accessibility_summary">Makes the Back and Home keys reach FSTV instead of Amazon\'s overlays</string>
+    <string name="accessibility_desc">Fire OS routes Back and Home to Amazon\'s overlay services before any third-party home app can see them. This service gives FSTV Launcher the first chance at those presses so the Home button jumps you back to FSTV and Back does what the launcher expects. The service only reads which app is in front and intercepts Back / Home; it does not read on-screen content or type for you.</string>
 </resources>
