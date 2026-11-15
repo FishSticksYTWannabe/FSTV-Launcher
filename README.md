@@ -12,7 +12,7 @@ Amazon's launcher.
 > **This project was coded completely with AI.** Every line — the Kotlin launcher, the build
 > system, and the setup scripts — was written by **Claude** (Anthropic's AI), built and debugged
 > live on a real Fire TV from plain-English direction.
-
+> Until further notice this is complete AI Slope (that is functional)
 ## Supported platforms
 
 FSTV is an Android app, so it runs on **Android-based TV systems only**:
