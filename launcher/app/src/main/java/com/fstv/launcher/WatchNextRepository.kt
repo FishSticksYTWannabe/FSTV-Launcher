@@ -18,6 +18,10 @@ class WatchNextRepository(private val context: Context) {
         val byPkg = HashMap<String, AppEntry>(entries.size)
         for (entry in entries) {
             if (entry.kind != Kind.APP) continue
+            // Utility tiles (Settings, Inputs, Fire TV Home, Appstore) use a flat iconRes rather
+            // than a real banner; they're shortcuts, not "continue"-worthy content. Keep them off
+            // the shelf — the grid already has them.
+            if (entry.iconRes != 0) continue
             val pkg = entry.intent?.component?.packageName ?: continue
             byPkg.putIfAbsent(pkg, entry)
         }
