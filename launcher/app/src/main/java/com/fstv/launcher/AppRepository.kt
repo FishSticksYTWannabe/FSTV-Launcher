@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.media.tv.TvInputManager
 import android.provider.Settings
 import android.util.DisplayMetrics
 import java.io.File
@@ -122,19 +123,22 @@ class AppRepository(private val context: Context, private val ui: Ui) {
     }
 
     /**
-     * A "Live TV" tile that opens the device's TV-input / source app, so inputs can be switched
-     * from the home screen without the physical button. Tries several brands, so it is not
-     * Fire-TV-only; absent on devices with no such app (e.g. a plain streaming stick).
+     * A "Sources" tile that opens FSTV's own full-screen input picker. Shown on any device whose
+     * TV framework exposes switchable physical inputs (HDMI, composite, etc.); naturally hidden
+     * on streaming sticks with none. SourcesActivity handles the actual switch, with fallbacks
+     * to the stock Fire TV picker when the standard passthrough URI isn't resolved.
      */
     private fun liveTvEntry(): AppEntry? {
-        for (pkg in LIVE_TV_PACKAGES) {
-            val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                return AppEntry(KEY_LIVETV, "Inputs", intent, Kind.APP, null, iconRes = R.drawable.ic_livetv)
-            }
+        val tvm = context.getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager ?: return null
+        val hasSwitchable = try {
+            tvm.tvInputList.any { SourcesActivity.isSwitchable(it.type) }
+        } catch (_: Exception) {
+            false
         }
-        return null
+        if (!hasSwitchable) return null
+        val intent = Intent(context, SourcesActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return AppEntry(KEY_LIVETV, "Sources", intent, Kind.APP, null, iconRes = R.drawable.ic_livetv)
     }
 
     private fun applySavedOrder(list: List<AppEntry>): List<AppEntry> {
@@ -228,15 +232,6 @@ class AppRepository(private val context: Context, private val ui: Ui) {
         private const val KEY_STOCK = "@stock"
         private const val KEY_LIVETV = "@livetv"
         private const val KEY_MORE = "@more"
-
-        // TV-input / source apps across brands, in order of preference.
-        private val LIVE_TV_PACKAGES = listOf(
-            "com.droidlogic.tvsource",       // Amlogic (this Fire TV Edition)
-            "com.mediatek.wwtv.tvcenter",    // MediaTek TVs
-            "com.mediatek.tvinput",
-            "com.google.android.tv",         // Android TV Live Channels
-            "com.android.tv",
-        )
 
         private val PRIORITY = listOf(
             "com.netflix.ninja",

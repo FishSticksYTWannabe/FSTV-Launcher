@@ -39,8 +39,10 @@ FSTV is an Android app, so it runs on **Android-based TV systems only**:
 - **Icon pack** — drop your own tile art into `images/tiles/<package>.png` and setup pushes it
   to the TV; works for any app or for the built-in Settings / Inputs / Fire TV Home tiles. See
   `images/tiles/README.txt` for the naming convention.
-- **Live TV / Inputs tile** — opens your TV's source app to switch inputs, when it has one
-  (brand-agnostic).
+- **Sources tile** — opens a built-in full-screen source picker that lists every switchable TV
+  input (HDMI 1/2/3, composite, component, VGA, etc.) as its own tile. Picks the standard
+  Android TV passthrough URI first and falls back to the stock input app when the TV doesn't
+  resolve that itself. Naturally hidden on devices with no physical inputs (streaming sticks).
 - **HDMI-CEC on by default** — setup turns on CEC so one remote drives connected soundbars,
   consoles and players, and a device turning on wakes the TV. See the setup script for a note on
   PS5 audio and the Linear PCM fix.
